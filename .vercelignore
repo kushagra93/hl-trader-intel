@@ -1,0 +1,8 @@
+intel/
+.github/
+*.py
+requirements.txt
+intel.db
+intel.db-*
+__pycache__/
+README.md

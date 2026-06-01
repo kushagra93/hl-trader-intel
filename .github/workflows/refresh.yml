@@ -1,0 +1,67 @@
+name: Refresh live trader intelligence
+
+# Regenerates the top-100 snapshot from Hyperliquid and redeploys to Vercel.
+# Runs server-side every 30 min so the live dashboard stays current.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      window:
+        description: "Ranking window"
+        default: "7d"
+        type: choice
+        options: [24h, 7d, 30d, all]
+      top_n:
+        description: "Leaderboard size"
+        default: "100"
+      limit_addrs:
+        description: "Max addresses to evaluate (bounds runtime under the API rate limit)"
+        default: "200"
+      discover_seconds:
+        description: "Discovery sweep duration (s)"
+        default: "60"
+
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      HL_PERP_DEX: xyz
+      INTEL_DB_PATH: intel.db
+      INTEL_EXPORT_PATH: public/intel_snapshot.json
+      INTEL_TOP_N: ${{ github.event.inputs.top_n || '100' }}
+      INTEL_WINDOW: ${{ github.event.inputs.window || '7d' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Discover participants
+        run: python -m intel.discover --duration ${{ github.event.inputs.discover_seconds || '60' }}
+
+      - name: Rank top N + export snapshot
+        run: python -m intel.ranker --window "$INTEL_WINDOW" --top-n "$INTEL_TOP_N" --limit-addrs "${{ github.event.inputs.limit_addrs || '200' }}" --export
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          npm i -g vercel@latest
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel deploy --prod --yes --token="$VERCEL_TOKEN"

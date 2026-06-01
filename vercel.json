@@ -1,0 +1,18 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "framework": null,
+  "buildCommand": null,
+  "installCommand": null,
+  "outputDirectory": "public",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "headers": [
+    {
+      "source": "/intel_snapshot.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=60, s-maxage=60" }
+      ]
+    }
+  ]
+}
