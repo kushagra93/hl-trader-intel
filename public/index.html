@@ -6,6 +6,8 @@
 <title>CoinDCX · Trader Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#182954">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23182954'/%3E%3Ctext x='16' y='23' font-size='20' font-weight='800' text-anchor='middle' fill='%23fa4a29' font-family='Arial,sans-serif'%3EC%3C/text%3E%3C/svg%3E">
 <style>
 /* ════════ HIP-3 Trader Intelligence — "Stacked" view (Direction A, refined) ════════ */
 :root{ --pos:#2ebd85; --neg:#f6465d; --amber:#f0a020; --blue:#5b9dff; }
@@ -20,7 +22,7 @@ body{ background:#e9edf2; display:flex; justify-content:center;
   --bg:#0b0d11; --bg-2:#0e1116; --surf:#15191f; --surf-2:#1b2028; --surf-3:#222834;
   --line:rgba(255,255,255,.07); --line-2:rgba(255,255,255,.12);
   --tx:#e9ecef; --tx-2:#9aa1ab; --tx-3:#646b75;
-  --pos:#3ddc97; --neg:#ff5f73; --blue:#6aa6ff; --amber:#f5b13d;
+  --pos:#3ddc97; --neg:#ff5f73; --blue:#6aa6ff; --orange:#ff7a52; --amber:#f5b13d;
   --posbg:rgba(61,220,151,.13); --negbg:rgba(255,95,115,.13); --amberbg:rgba(245,177,61,.12); --bluebg:rgba(106,166,255,.14);
   --gold:#f5c451; --silver:#c2ccd8; --bronze:#e0975a; }
 .tiscreen[data-theme="light"]{
@@ -28,8 +30,8 @@ body{ background:#e9edf2; display:flex; justify-content:center;
   --bg:#f5f6f8; --bg-2:#ffffff; --surf:#ffffff; --surf-2:#f6f7f9; --surf-3:#eef1f5;
   --line:#edf0f3; --line-2:rgba(16,24,40,.12);
   --tx:#13161f; --tx-2:#667085; --tx-3:#98a2b3;
-  --pos:#0aae7a; --neg:#f6465d; --blue:#3a5bf7; --amber:#e08a16;
-  --posbg:rgba(10,174,122,.12); --negbg:rgba(246,70,93,.10); --amberbg:rgba(224,138,22,.12); --bluebg:rgba(58,91,247,.10);
+  --pos:#0aae7a; --neg:#f6465d; --blue:#182954; --orange:#fa4a29; --amber:#e08a16;
+  --posbg:rgba(10,174,122,.12); --negbg:rgba(246,70,93,.10); --amberbg:rgba(224,138,22,.12); --bluebg:rgba(24,41,84,.07);
   --gold:#c79008; --silver:#7c8794; --bronze:#b5702f; }
 
 .tiscreen *{ box-sizing:border-box; }
@@ -41,11 +43,12 @@ body{ background:#e9edf2; display:flex; justify-content:center;
 
 /* header */
 .ti-head{ position:sticky; top:0; z-index:30; background:var(--bg); border-bottom:1px solid var(--line); }
-.ti-head-top{ display:flex; align-items:center; gap:8px; padding:16px 16px 0; }
-.brandmark{ width:26px; height:26px; border-radius:8px; background:var(--blue); color:#fff; font-weight:800; font-size:15px;
-  display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 2px 6px rgba(58,91,247,.35); }
-.ti-title{ font-size:17px; font-weight:700; letter-spacing:-.2px; flex:1; }
-.ti-title small{ display:block; font-size:10.5px; font-weight:600; color:var(--blue); letter-spacing:.3px; margin-top:1px; }
+.ti-head-top{ display:flex; align-items:flex-start; gap:8px; padding:16px 16px 0; }
+.wordmark{ font-weight:800; font-size:20px; letter-spacing:-.6px; line-height:1; }
+.wordmark .wm-coin{ color:var(--blue); } .wordmark .wm-dcx{ color:var(--orange); }
+.tiscreen[data-theme="dark"] .wordmark .wm-coin{ color:#e9ecef; }
+.ti-sub{ font-size:11.5px; font-weight:600; color:var(--tx-2); margin-top:4px; }
+.ti-sub b{ color:var(--tx); }
 .ti-meta{ display:flex; align-items:center; flex-wrap:wrap; gap:6px 9px; padding:7px 16px 11px; font-size:11px; color:var(--tx-2); }
 .ti-meta .num{ color:var(--tx); font-weight:600; }
 .ti-dot{ width:3px; height:3px; border-radius:50%; background:var(--tx-3); }
@@ -202,8 +205,11 @@ function buildModel(d){
 function headerHTML(){
   const m=ST.model.meta;
   return `<div class="ti-head">
-    <div class="ti-head-top"><div class="brandmark">C</div>
-      <div class="ti-title">Trader Intelligence<small>COINDCX · GLOBAL FUTURES</small></div>
+    <div class="ti-head-top">
+      <div style="flex:1;min-width:0">
+        <div class="wordmark"><span class="wm-coin">Coin</span><span class="wm-dcx">DCX</span></div>
+        <div class="ti-sub"><b>Trader Intelligence</b> · Global Futures</div>
+      </div>
       <button class="iconbtn" data-act="disc" ${ST.disc?'style="color:var(--amber);border-color:var(--amber)"':''}>${icoInfo}</button>
       <button class="iconbtn" data-act="theme">${ST.theme==='dark'?icoMoon:icoSun()}</button></div>
     <div class="ti-meta num">
