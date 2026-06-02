@@ -74,6 +74,16 @@ body{ background:#05070a; display:flex; justify-content:center;
 .bias .lbl{ display:flex; justify-content:space-between; font-size:10.5px; margin-bottom:6px; }
 .bias .lbl b{ font-weight:700; }
 
+/* whales / influence strip */
+.whales{ display:flex; gap:8px; overflow-x:auto; padding:2px 16px 6px; scroll-snap-type:x proximity; }
+.whales::-webkit-scrollbar{ height:0; }
+.wcard{ flex:0 0 auto; width:158px; background:var(--surf); border:1px solid var(--line); border-radius:12px; padding:9px 11px; cursor:pointer; scroll-snap-align:start; }
+.wcard:active{ background:var(--surf-2); }
+.wcard .a{ font-size:12px; font-weight:600; color:var(--blue); display:flex; align-items:center; gap:5px; }
+.wcard .av{ font-size:14.5px; font-weight:700; color:var(--tx); margin-top:4px; }
+.wcard . k,.wcard .kk{ font-size:9.5px; color:var(--tx-3); text-transform:uppercase; letter-spacing:.3px; margin-top:5px; }
+.wcard .np{ font-size:11px; font-weight:600; margin-top:1px; }
+
 /* leaderboard */
 .a-tbl{ margin:0 12px; }
 .a-row{ display:flex; align-items:center; gap:10px; padding:10px 8px; border-radius:10px; cursor:pointer; }
@@ -104,7 +114,7 @@ body{ background:#05070a; display:flex; justify-content:center;
 /* sheet */
 .sheet-scrim{ position:absolute; inset:0; z-index:60; background:rgba(0,0,0,.5); opacity:0; pointer-events:none; transition:opacity .25s ease; }
 .sheet-scrim.on{ opacity:1; pointer-events:auto; }
-.sheet{ position:absolute; left:0; right:0; bottom:0; z-index:61; max-height:84%; background:var(--bg-2); border-radius:22px 22px 0 0;
+.sheet{ position:absolute; left:0; right:0; bottom:0; z-index:61; max-height:84%; background:var(--bg-2); color:var(--tx); border-radius:22px 22px 0 0;
   border-top:1px solid var(--line-2); transform:translateY(101%); transition:transform .3s cubic-bezier(.32,.72,0,1); display:flex; flex-direction:column; box-shadow:0 -20px 50px rgba(0,0,0,.35); }
 .sheet.on{ transform:translateY(0); }
 .sheet-grab{ width:38px; height:5px; border-radius:99px; background:var(--line-2); margin:9px auto 4px; flex-shrink:0; }
@@ -120,7 +130,7 @@ body{ background:#05070a; display:flex; justify-content:center;
 .pos-hd .sym{ font-size:15px; font-weight:700; }
 .pos-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:9px 6px; }
 .pos-grid .k{ font-size:9.5px; color:var(--tx-3); text-transform:uppercase; letter-spacing:.2px; }
-.pos-grid .v{ font-size:12.5px; font-weight:600; margin-top:2px; }
+.pos-grid .v{ font-size:12.5px; font-weight:700; color:var(--tx); margin-top:2px; }
 .loading{ padding:40px 20px; color:var(--tx-2); font-size:13px; text-align:center; }
 </style>
 </head>
@@ -140,6 +150,7 @@ function usd(n,{sign=false}={}){ const neg=n<0; const s='$'+commas(Math.abs(n));
 function usdC(n){ const a=Math.abs(n),neg=n<0?'-':''; let b; if(a>=1e6)b='$'+(a/1e6).toFixed(2)+'M'; else if(a>=1e3)b='$'+(a/1e3).toFixed(a>=1e5?0:1)+'K'; else b='$'+Math.round(a); return neg+b; }
 function pct(n,d=2){ return (n==null?'—':n.toFixed(d)+'%'); }
 function fundPct(rate){ if(rate==null) return '—'; const v=rate*100; const a=Math.abs(v); const s=a>=0.01?v.toFixed(2):(a===0?'0':v.toFixed(4)); return (v>=0?'+':'')+s+'%'; }
+function fmtPx(v){ if(v==null||v==='') return '—'; const n=Number(v); if(!isFinite(n)) return '—'; const a=Math.abs(n); return a>=1000?commas(n):a>=1?n.toFixed(2):n.toFixed(4); }
 const N = v => v==null?null:Number(v);
 const sym = coin => (coin||'').split(':').pop();
 const sgn = v => v>=0?'pos':'neg';
@@ -214,6 +225,10 @@ function body(){
   let tl=0, ts=0; coins.forEach(c=> c.net>=0 ? tl+=c.net : ts+=Math.abs(c.net));
   const biasPctLong = (tl+ts)>0 ? (tl/(tl+ts))*100 : 50;
 
+  // whales — biggest accounts (proxy for influence / copy-worthiness;
+  // Hyperliquid doesn't expose copier counts publicly)
+  const whales=[...traders].filter(t=>t.acct>0).sort((a,b)=>b.acct-a.acct).slice(0,8);
+
   // leaderboard sort
   const lb=[...traders].sort((a,b)=> ST.sortLb==='roe'
       ? ((b.roi==null?-1e18:b.roi)-(a.roi==null?-1e18:a.roi))
@@ -229,6 +244,13 @@ function body(){
 
     <div class="bias"><div class="lbl"><span>Crowd bias <b class="pos num">${usdC(tl)} long</b></span><span><b class="neg num">${usdC(ts)} short</b></span></div>
       <div class="lean" style="height:8px"><i style="width:${biasPctLong}%"></i></div></div>
+
+    <div class="sec"><h3>Whales</h3><span class="hint">biggest accounts · tap → live book</span></div>
+    <div class="whales">${whales.map(t=>`<div class="wcard" data-addr="${esc(t.addr)}">
+      <div class="a mono num">${t.short}</div>
+      <div class="kk">Account value</div><div class="av num">${usdC(t.acct)}</div>
+      <div class="np num ${sgn(t.net)}">${usd(t.net,{sign:true})} · ${t.roi==null?'—':(t.roi>=0?'+':'')+pct(t.roi)}</div>
+    </div>`).join('')||'<div class="loading" style="padding:8px 4px">no account data</div>'}</div>
 
     <div class="sec"><h3>Top performers</h3><span class="ct num">${traders.length}</span>
       <span class="minseg"><button data-sortlb="net" class="${ST.sortLb==='net'?'on':''}">Net PnL</button><button data-sortlb="roe" class="${ST.sortLb==='roe'?'on':''}">ROE</button></span></div>
@@ -258,23 +280,39 @@ function body(){
   return h+`</div>`;
 }
 
-/* ── drill-down sheet ── */
-function openSheet(addr){
-  const t=ST.model.traders.find(x=>x.addr===addr); if(!t) return;
-  const posTotal=t.positions.reduce((a,p)=>a+p.notional,0);
+/* ── drill-down sheet (fetches LIVE positions from Hyperliquid, snapshot fallback) ── */
+const HL_INFO='https://api.hyperliquid.xyz/info';
+function fetchLivePositions(addr,dex){
+  return fetch(HL_INFO,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:'clearinghouseState',user:addr,dex})}).then(r=>r.json()).then(ch=>{
+    const aps=(ch&&ch.assetPositions)||[]; let u=0,m=0;
+    const positions=aps.map(ap=>{ const p=ap.position||{}; const szi=Number(p.szi)||0; u+=Number(p.unrealizedPnl)||0; m+=Number(p.marginUsed)||0;
+      return { sym:sym(p.coin), side:szi>=0?'LONG':'SHORT', size:Math.abs(szi), notional:Number(p.positionValue)||0,
+        unreal:Number(p.unrealizedPnl)||0, roe:(Number(p.returnOnEquity)||0)*100,
+        lev:(p.leverage&&Number(p.leverage.value))||0, liq:p.liquidationPx }; });
+    const acct=Number(ch&&ch.marginSummary&&ch.marginSummary.accountValue)||0;
+    return { positions, unreal:u, acct, roi:m>0?u/m*100:null }; });
+}
+function renderSheet(t, positions, ov){
+  ov=ov||{}; const live=!!ov.live;
+  const unreal=ov.unreal!=null?ov.unreal:t.unreal, acct=ov.acct!=null?ov.acct:t.acct;
+  const roi=('roi' in ov)?ov.roi:t.roi, net=unreal+t.funding;
+  const posTotal=positions.reduce((a,p)=>a+p.notional,0);
   const kv=(k,v,cls)=>`<div class="kv"><div class="k">${k}</div><div class="v num ${cls}">${v}</div></div>`;
+  const tag=live?`<span class="bdg" style="color:var(--pos);background:var(--posbg);margin-left:6px">● live now</span>`
+    :`<span class="bdg" style="color:var(--tx-3);border:1px solid var(--line-2);margin-left:6px">snapshot · loading live…</span>`;
   let b=`<div class="sheet-hd"><div style="display:flex;align-items:flex-start;gap:10px">
       <div style="flex:1;min-width:0"><div class="mono num" style="font-size:12.5px;font-weight:700;color:var(--blue);word-break:break-all;line-height:1.35">${t.addr}</div>
-        <div style="font-size:11px;color:var(--tx-2);margin-top:4px">Rank #${t.rank} · ${t.positions.length} open position${t.positions.length===1?'':'s'} · live open book</div></div>
+        <div style="font-size:11px;color:var(--tx-2);margin-top:4px">Rank #${t.rank} · ${positions.length} open position${positions.length===1?'':'s'}${tag}</div></div>
       <button class="iconbtn" data-act="close">${icoClose}</button></div></div>
     <div class="sheet-body"><div class="kvgrid">
-      ${kv('Net (unreal+fund)',usd(t.net,{sign:true}),sgn(t.net))}
-      ${kv('ROI (ROE)',t.roi==null?'—':pct(t.roi),t.roi==null?'':sgn(t.roi))}
-      <div class="kv"><div class="k">Unrealized PnL</div><div class="v num ${sgn(t.unreal)}">${usd(t.unreal,{sign:true})}<span class="bdg exact" style="margin-left:6px;vertical-align:middle">${esc(t.basis)}</span></div></div>
+      ${kv('Net (unreal+fund)',usd(net,{sign:true}),sgn(net))}
+      ${kv('ROI (ROE)',roi==null?'—':pct(roi),roi==null?'':sgn(roi))}
+      <div class="kv"><div class="k">Unrealized PnL</div><div class="v num ${sgn(unreal)}">${usd(unreal,{sign:true})}<span class="bdg exact" style="margin-left:6px;vertical-align:middle">${live?'live':esc(t.basis)}</span></div></div>
       ${kv('Funding (window)',usd(t.funding,{sign:true}),sgn(t.funding))}</div>
-    <div class="sec" style="padding:0 2px 8px"><h3>Holding now</h3><span class="hint num">acct ${usd(t.acct)} · ${usdC(posTotal)} notional</span></div>`;
-  if(!t.positions.length) b+=`<div class="loading" style="padding:18px">No open positions on this dex.</div>`;
-  t.positions.forEach(p=>{ const c=ST.model.mkt[p.sym]||{};
+    <div class="sec" style="padding:0 2px 8px"><h3>Holding now</h3><span class="hint num">acct ${usd(acct)} · ${usdC(posTotal)} notional</span></div>`;
+  if(!positions.length) b+=`<div class="loading" style="padding:18px">No open positions on this dex.</div>`;
+  positions.forEach(p=>{ const c=ST.model.mkt[p.sym]||{};
     b+=`<div class="pos-card"><div class="pos-hd"><span class="sym">xyz:${esc(p.sym)}</span>
       <span class="bdg ${p.side==='LONG'?'long':'short'}">${p.side}</span>
       <span class="num" style="margin-left:auto;font-size:12px;font-weight:700;color:${p.unreal>=0?'var(--pos)':'var(--neg)'}">${usd(p.unreal,{sign:true})}</span></div>
@@ -283,14 +321,23 @@ function openSheet(addr){
         <div><div class="k">Size</div><div class="v">${commas(p.size)}</div></div>
         <div><div class="k">Leverage</div><div class="v">${p.lev?p.lev+'x':'—'}</div></div>
         <div><div class="k">ROE</div><div class="v">${pct(p.roe,1)}</div></div>
-        <div><div class="k">Liq px</div><div class="v">${p.liq==null?'—':p.liq}</div></div>
-        <div><div class="k">Mark / Fund</div><div class="v">${c.mark==null?'—':commas(c.mark)}<span style="color:${(c.funding||0)>=0?'var(--pos)':'var(--neg)'};font-size:10px;margin-left:4px">${c.funding==null?'':fundPct(c.funding)}</span></div></div>
+        <div><div class="k">Liq px</div><div class="v">${fmtPx(p.liq)}</div></div>
+        <div><div class="k">Mark / Fund</div><div class="v">${fmtPx(c.mark)}<span style="color:${(c.funding||0)>=0?'var(--pos)':'var(--neg)'};font-size:10px;margin-left:4px">${c.funding==null?'':fundPct(c.funding)}</span></div></div>
       </div></div>`; });
   document.getElementById('sheetInner').innerHTML=b+`</div>`;
-  document.getElementById('sheet').classList.add('on'); document.getElementById('scrim').classList.add('on');
-  document.querySelector('#sheetInner [data-act="close"]').onclick=closeSheet;
+  const cb=document.querySelector('#sheetInner [data-act="close"]'); if(cb) cb.onclick=closeSheet;
 }
-function closeSheet(){ document.getElementById('sheet').classList.remove('on'); document.getElementById('scrim').classList.remove('on'); }
+function openSheet(addr){
+  const t=ST.model.traders.find(x=>x.addr===addr); if(!t) return;
+  ST.selAddr=addr;
+  renderSheet(t, t.positions, {live:false});                 // instant snapshot
+  document.getElementById('sheet').classList.add('on'); document.getElementById('scrim').classList.add('on');
+  fetchLivePositions(t.addr, ST.model.meta.dex).then(live=>{  // then live from Hyperliquid
+    if(ST.selAddr!==addr) return;
+    renderSheet(t, live.positions, {live:true, unreal:live.unreal, roi:live.roi, acct:live.acct});
+  }).catch(()=>{ /* CORS/network → keep snapshot */ });
+}
+function closeSheet(){ ST.selAddr=null; document.getElementById('sheet').classList.remove('on'); document.getElementById('scrim').classList.remove('on'); }
 
 /* ── render + events ── */
 function render(){ document.getElementById('screen').setAttribute('data-theme',ST.theme); document.getElementById('scroll').innerHTML=headerHTML()+body(); }
@@ -321,7 +368,7 @@ function load(initial){
 }
 load(true).catch(e=>{ document.getElementById('scroll').innerHTML='<div class="loading">Could not load intel_snapshot.json — run the ranker with --export.<br><br>'+esc(e.message)+'</div>'; });
 setInterval(tick, 5000);                               // freshness label
-setInterval(()=>load(false).catch(()=>{}), 60000);     // poll for a newer snapshot
+setInterval(()=>load(false).catch(()=>{}), 30000);     // poll for a newer snapshot
 </script>
 </body>
 </html>

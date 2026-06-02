@@ -3,3 +3,5 @@ __pycache__/
 intel.db
 intel.db-*
 .vercel
+.env
+.env.*
