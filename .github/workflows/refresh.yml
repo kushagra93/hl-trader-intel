@@ -28,7 +28,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   refresh:
@@ -75,3 +75,17 @@ jobs:
           npm i -g vercel@latest
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
           vercel deploy --prod --yes --token="$VERCEL_TOKEN"
+
+      # Commit the fresh snapshot so the repo's committed state is always current
+      # — prevents any later deploy (manual or git) from reverting to a stale file.
+      - name: Commit snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/intel_snapshot.json
+          if git diff --staged --quiet; then
+            echo "snapshot unchanged"
+          else
+            git commit -m "snapshot: $(date -u +%FT%TZ)"
+            git push
+          fi
