@@ -3,15 +3,17 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>HIP-3 Trader Intelligence</title>
+<title>CoinDCX · Trader Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 /* ════════ HIP-3 Trader Intelligence — "Stacked" view (Direction A, refined) ════════ */
 :root{ --pos:#2ebd85; --neg:#f6465d; --amber:#f0a020; --blue:#5b9dff; }
 *{ box-sizing:border-box; }
 html,body{ height:100%; margin:0; }
-body{ background:#05070a; display:flex; justify-content:center;
-  font-family:-apple-system,"SF Pro",system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
-.frame{ position:relative; width:100%; max-width:480px; height:100dvh; height:100vh; overflow:hidden; box-shadow:0 0 60px rgba(0,0,0,.6); }
+body{ background:#e9edf2; display:flex; justify-content:center;
+  font-family:"Inter",-apple-system,"SF Pro",system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+.frame{ position:relative; width:100%; max-width:480px; height:100dvh; height:100vh; overflow:hidden; box-shadow:0 0 60px rgba(0,0,0,.25); }
 
 .tiscreen{ position:relative; width:100%; height:100%; overflow:hidden; }
 .tiscreen[data-theme="dark"]{
@@ -22,12 +24,13 @@ body{ background:#05070a; display:flex; justify-content:center;
   --posbg:rgba(61,220,151,.13); --negbg:rgba(255,95,115,.13); --amberbg:rgba(245,177,61,.12); --bluebg:rgba(106,166,255,.14);
   --gold:#f5c451; --silver:#c2ccd8; --bronze:#e0975a; }
 .tiscreen[data-theme="light"]{
-  --bg:#f4f6f9; --bg-2:#ffffff; --surf:#ffffff; --surf-2:#f5f7fa; --surf-3:#eef1f5;
-  --line:rgba(15,23,32,.09); --line-2:rgba(15,23,32,.14);
-  --tx:#0f1720; --tx-2:#5a636e; --tx-3:#97a0ab;
-  --pos:#0a9d6e; --neg:#e0344b; --blue:#2f6fe0; --amber:#b9760a;
-  --posbg:rgba(10,157,110,.10); --negbg:rgba(224,52,75,.09); --amberbg:rgba(185,118,10,.11); --bluebg:rgba(47,111,224,.10);
-  --gold:#b8860b; --silver:#7c8794; --bronze:#b5702f; }
+  /* CoinDCX brand (light) */
+  --bg:#f5f6f8; --bg-2:#ffffff; --surf:#ffffff; --surf-2:#f6f7f9; --surf-3:#eef1f5;
+  --line:#edf0f3; --line-2:rgba(16,24,40,.12);
+  --tx:#13161f; --tx-2:#667085; --tx-3:#98a2b3;
+  --pos:#0aae7a; --neg:#f6465d; --blue:#3a5bf7; --amber:#e08a16;
+  --posbg:rgba(10,174,122,.12); --negbg:rgba(246,70,93,.10); --amberbg:rgba(224,138,22,.12); --bluebg:rgba(58,91,247,.10);
+  --gold:#c79008; --silver:#7c8794; --bronze:#b5702f; }
 
 .tiscreen *{ box-sizing:border-box; }
 .scroll{ position:absolute; inset:0; overflow-y:auto; -webkit-overflow-scrolling:touch; background:var(--bg); color:var(--tx); }
@@ -39,7 +42,10 @@ body{ background:#05070a; display:flex; justify-content:center;
 /* header */
 .ti-head{ position:sticky; top:0; z-index:30; background:var(--bg); border-bottom:1px solid var(--line); }
 .ti-head-top{ display:flex; align-items:center; gap:8px; padding:16px 16px 0; }
+.brandmark{ width:26px; height:26px; border-radius:8px; background:var(--blue); color:#fff; font-weight:800; font-size:15px;
+  display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 2px 6px rgba(58,91,247,.35); }
 .ti-title{ font-size:17px; font-weight:700; letter-spacing:-.2px; flex:1; }
+.ti-title small{ display:block; font-size:10.5px; font-weight:600; color:var(--blue); letter-spacing:.3px; margin-top:1px; }
 .ti-meta{ display:flex; align-items:center; flex-wrap:wrap; gap:6px 9px; padding:7px 16px 11px; font-size:11px; color:var(--tx-2); }
 .ti-meta .num{ color:var(--tx); font-weight:600; }
 .ti-dot{ width:3px; height:3px; border-radius:50%; background:var(--tx-3); }
@@ -61,6 +67,10 @@ body{ background:#05070a; display:flex; justify-content:center;
 .bdg{ display:inline-flex; align-items:center; height:16px; padding:0 6px; border-radius:5px; font-size:9.5px; font-weight:700; letter-spacing:.2px; }
 .bdg.long{ color:var(--pos); background:var(--posbg); } .bdg.short{ color:var(--neg); background:var(--negbg); }
 .bdg.exact{ color:var(--pos); background:var(--posbg); } .bdg.fresh{ color:var(--amber); background:var(--amberbg); }
+/* CoinDCX-style solid change pill */
+.chgpill{ display:inline-flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:11px;
+  padding:3px 8px; border-radius:7px; line-height:1; min-width:58px; }
+.chgpill.up{ background:var(--pos); } .chgpill.down{ background:var(--neg); }
 .lean{ position:relative; height:7px; border-radius:999px; overflow:hidden; background:var(--neg); display:flex; }
 .lean > i{ display:block; height:100%; background:var(--pos); }
 
@@ -136,7 +146,7 @@ body{ background:#05070a; display:flex; justify-content:center;
 </head>
 <body>
 <div class="frame">
-  <div class="tiscreen" data-theme="dark" id="screen">
+  <div class="tiscreen" data-theme="light" id="screen">
     <div class="scroll" id="scroll"><div class="loading">Loading intel_snapshot.json…</div></div>
     <div class="sheet-scrim" id="scrim"></div>
     <div class="sheet" id="sheet"><div class="sheet-grab"></div><div id="sheetInner"></div></div>
@@ -163,7 +173,7 @@ function icoSun(){ let l=''; for(let i=0;i<8;i++){const a=i*Math.PI/4; l+=`<line
 const icoClose='<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
 
 /* ── state + model ── */
-const ST = { theme:'dark', disc:false, sortLb:'net', sortLean:'net', data:null, model:null };
+const ST = { theme:'light', disc:false, sortLb:'net', sortLean:'net', data:null, model:null };
 
 function buildModel(d){
   const s=d.snapshot;
@@ -192,7 +202,8 @@ function buildModel(d){
 function headerHTML(){
   const m=ST.model.meta;
   return `<div class="ti-head">
-    <div class="ti-head-top"><div class="ti-title">Trader Intelligence</div>
+    <div class="ti-head-top"><div class="brandmark">C</div>
+      <div class="ti-title">Trader Intelligence<small>COINDCX · GLOBAL FUTURES</small></div>
       <button class="iconbtn" data-act="disc" ${ST.disc?'style="color:var(--amber);border-color:var(--amber)"':''}>${icoInfo}</button>
       <button class="iconbtn" data-act="theme">${ST.theme==='dark'?icoMoon:icoSun()}</button></div>
     <div class="ti-meta num">
@@ -261,7 +272,7 @@ function body(){
       <div class="a-addr"><div class="h mono num">${t.short}<span class="bdg exact">${esc(t.basis)}</span></div>
         <div class="sub num">${coinChips(t.positions)}</div></div>
       <div class="a-net num"><div class="big ${sgn(t.net)}">${usd(t.net,{sign:true})}</div>
-        <div class="roi ${t.roi==null?'':sgn(t.roi)}">${t.roi==null?'—':(t.roi>=0?'+':'')+pct(t.roi)} ROE</div>
+        <div style="margin-top:3px;display:flex;justify-content:flex-end">${t.roi==null?'<span class="roi" style="color:var(--tx-3)">— ROE</span>':`<span class="chgpill ${t.roi>=0?'up':'down'}">${(t.roi>=0?'+':'')+pct(t.roi)}</span>`}</div>
         <div class="fn">fund <span class="${sgn(t.funding)}">${usdC(t.funding)}</span></div></div>
     </div>`; });
 
