@@ -50,8 +50,18 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
+      # Persist the participant/fills DB across runs so the address universe
+      # accumulates and keeps refreshing (instead of starting empty each time).
+      - name: Restore participant DB
+        uses: actions/cache@v4
+        with:
+          path: intel.db
+          key: intel-db-${{ github.run_id }}
+          restore-keys: |
+            intel-db-
+
       - name: Discover participants
-        run: python -m intel.discover --duration ${{ github.event.inputs.discover_seconds || '60' }}
+        run: python -m intel.discover --duration ${{ github.event.inputs.discover_seconds || '90' }}
 
       - name: Rank top N + export snapshot
         run: python -m intel.ranker --window "$INTEL_WINDOW" --top-n "$INTEL_TOP_N" --limit-addrs "${{ github.event.inputs.limit_addrs || '200' }}" --export
