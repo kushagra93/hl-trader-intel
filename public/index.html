@@ -187,11 +187,12 @@ body{ background:#e9edf2; display:flex; justify-content:center;
 /* consensus heat banner */
 .hbanner{ margin:6px 16px 4px; border-radius:14px; padding:12px 13px; display:flex; align-items:center; gap:11px; cursor:pointer;
   border:1px solid var(--line); position:relative; overflow:hidden; }
-.hbanner.hot{ background:linear-gradient(100deg, rgba(224,138,22,.16), rgba(224,138,22,.04)); border-color:rgba(224,138,22,.4); }
-.hbanner.urgent{ background:linear-gradient(100deg, rgba(255,90,60,.18), rgba(255,90,60,.04)); border-color:rgba(255,90,60,.45); }
-.hb-bolt{ width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0;
-  background:rgba(255,255,255,.08); }
-.hbanner.hot .hb-bolt{ color:var(--amber); } .hbanner.urgent .hb-bolt{ color:var(--urgent); }
+/* banner tint follows consensus side: LONG → green, SHORT → red */
+.hbanner.long{ background:linear-gradient(100deg, color-mix(in srgb,var(--pos) 20%,transparent), color-mix(in srgb,var(--pos) 4%,transparent)); border-color:color-mix(in srgb,var(--pos) 42%,var(--line)); }
+.hbanner.short{ background:linear-gradient(100deg, color-mix(in srgb,var(--neg) 20%,transparent), color-mix(in srgb,var(--neg) 4%,transparent)); border-color:color-mix(in srgb,var(--neg) 42%,var(--line)); }
+.hbanner.urgent{ animation:pulse 1.8s infinite; }
+.hb-bolt{ width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; background:rgba(127,127,127,.12); }
+.hbanner.long .hb-bolt{ color:var(--pos); background:var(--posbg); } .hbanner.short .hb-bolt{ color:var(--neg); background:var(--negbg); }
 .hb-text{ flex:1; min-width:0; }
 .hb-l1{ font-size:12.5px; font-weight:700; }
 .hb-l2{ font-size:11px; color:var(--tx-2); margin-top:2px; }
@@ -205,6 +206,13 @@ body{ background:#e9edf2; display:flex; justify-content:center;
 .thread.sel{ border-color:var(--blue); box-shadow:0 0 0 1px var(--blue), var(--shadow); }
 .thread.flash{ animation:thflash 1s ease; }
 @keyframes thflash{ 0%{ box-shadow:0 0 0 2px var(--pos), var(--shadow);} 100%{ box-shadow:var(--shadow-sm);} }
+/* consensus side theming: LONG → green, SHORT → red */
+.thread.side-long{ background:color-mix(in srgb, var(--pos) 6%, var(--surf)); border-color:color-mix(in srgb, var(--pos) 26%, var(--line)); }
+.thread.side-short{ background:color-mix(in srgb, var(--neg) 6%, var(--surf)); border-color:color-mix(in srgb, var(--neg) 26%, var(--line)); }
+.thread.side-long.sel{ border-color:var(--pos); box-shadow:0 0 0 1px var(--pos), var(--shadow); }
+.thread.side-short.sel{ border-color:var(--neg); box-shadow:0 0 0 1px var(--neg), var(--shadow); }
+.thread.side-long .coin-px{ color:color-mix(in srgb, var(--pos) 65%, var(--tx-3)); }
+.thread.side-short .coin-px{ color:color-mix(in srgb, var(--neg) 65%, var(--tx-3)); }
 .th-accent{ position:absolute; left:0; top:0; bottom:0; width:4px; }
 .th-top{ display:flex; align-items:center; gap:8px; }
 .coin-tile{ width:24px; height:24px; border-radius:7px; color:#fff; font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -619,7 +627,7 @@ function markersFor(th){ return th.traders.slice(0,6).map((t,i)=>({frac:0.2+0.6*
 function threadCardHTML(th, now){
   const s=threadStats(th,now); const [hl,hc]=heatBadge(s.heat);
   const flagged=s.heat>95?'urgent':s.heat>72?'hot':'';
-  return `<div class="thread ${flagged} ${ST.threadSel===th.id?'sel':''}" data-thread="${th.id}">
+  return `<div class="thread side-${s.majority} ${flagged} ${ST.threadSel===th.id?'sel':''}" data-thread="${th.id}">
     <div class="th-accent" style="background:${th.color}"></div>
     <div class="th-top"><span class="coin-tile" style="background:${th.color}">${esc(th.sym[0])}</span>
       <span class="coin-sym">${esc(th.sym)}</span><span class="coin-px num">$${fmtPx(th.price)}</span>
@@ -640,7 +648,7 @@ function threadCardHTML(th, now){
 function bannerHTML(threads, now){
   const ranked=threads.map(th=>({th,s:threadStats(th,now)})).sort((a,b)=>b.s.heat-a.s.heat); const top=ranked[0];
   if(!top||top.s.heat<60) return ''; const {th,s}=top;
-  return `<div class="hbanner ${s.heat>95?'urgent':'hot'}" data-thread="${th.id}">
+  return `<div class="hbanner ${s.majority} ${s.heat>95?'urgent':''}" data-thread="${th.id}">
     <div class="hb-bolt">⚡</div><div class="hb-text">
       <div class="hb-l1">Consensus forming on <span style="color:${th.color}">$${esc(th.sym)}</span></div>
       <div class="hb-l2"><strong>${s.majCount} top traders</strong> ${s.majority==='long'?'opened':'opened'} <span class="${s.majority}">${s.majority.toUpperCase()}</span> in ${s.windowMin}m · net ${usdC(Math.abs(s.net))} · ${s.consensus}% aligned</div>
