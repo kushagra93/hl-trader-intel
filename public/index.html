@@ -280,6 +280,18 @@ body{ background:#e9edf2; display:flex; justify-content:center;
   background:#0a8d63; color:#fff; font-weight:700; font-size:12.5px; padding:11px 16px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.4); }
 .cbtn{ display:inline-flex; align-items:center; gap:5px; height:28px; padding:0 11px; border-radius:8px; border:0; background:var(--blue); color:#fff; font-family:inherit; font-size:11px; font-weight:700; cursor:pointer; }
 .cbtn.mini{ height:26px; padding:0 8px; }
+/* non-actionable trade recommendation (copy/redirect removed pending approval) */
+.th-reco{ margin-left:auto; font-size:10px; font-weight:800; letter-spacing:.3px; padding:3px 8px; border-radius:7px; }
+.th-reco.long{ color:var(--pos); background:var(--posbg); } .th-reco.short{ color:var(--neg); background:var(--negbg); }
+.reco{ margin-top:12px; border-radius:12px; padding:11px 13px; border:1px solid var(--line); }
+.reco.long{ background:color-mix(in srgb,var(--pos) 8%,var(--surf)); border-color:color-mix(in srgb,var(--pos) 30%,var(--line)); }
+.reco.short{ background:color-mix(in srgb,var(--neg) 8%,var(--surf)); border-color:color-mix(in srgb,var(--neg) 30%,var(--line)); }
+.reco-top{ display:flex; align-items:center; gap:8px; font-size:14px; font-weight:800; }
+.reco-tag{ font-size:9px; font-weight:800; letter-spacing:.6px; padding:2px 7px; border-radius:6px; background:var(--surf-3); color:var(--tx-2); }
+.reco.long .reco-top strong{ color:var(--pos); } .reco.short .reco-top strong{ color:var(--neg); }
+.reco-meta{ margin-left:auto; font-size:10.5px; font-weight:600; color:var(--tx-2); }
+.reco-params{ font-size:12px; color:var(--tx); margin-top:7px; font-variant-numeric:tabular-nums; }
+.reco-disc{ font-size:10px; color:var(--tx-3); margin-top:8px; line-height:1.4; }
 
 /* sheet */
 .sheet-scrim{ position:absolute; inset:0; z-index:60; background:rgba(0,0,0,.5); opacity:0; pointer-events:none; transition:opacity .25s ease; }
@@ -650,7 +662,7 @@ function threadCardHTML(th, now){
       </div></div>
       <div class="th-spark">${sparkSVG(th.spark,th.color,140,46,markersFor(th))}</div></div>
     <div class="th-foot"><span class="lastfill">last fill ${relTime(s.lastFill)}</span>
-      <button class="cbtn mini" style="margin-left:auto" data-copyth="${th.id}">${icoCopy} Copy</button></div>
+      <span class="th-reco ${s.majority}">Signal · ${s.majority.toUpperCase()}</span></div>
   </div>`;
 }
 function bannerHTML(threads, now){
@@ -702,13 +714,16 @@ function openThreadSheet(id){
         ${dg('Avg entry','$'+fmtPx(s.avgEntry))}
         ${dg('Avg leverage',s.avgLev?s.avgLev.toFixed(1)+'×':'—')}</div>
       <div style="margin:6px 0 2px">${sparkSVG(th.spark,th.color,Math.min(440,(window.innerWidth||390)-64),74,markersFor(th))}</div>
-      <button class="copy-cta ${s.majority}" data-copyth="${th.id}"><span>${icoCopy}</span><span>Copy consensus · <strong>${s.majority.toUpperCase()} $${esc(th.sym)}</strong></span><span class="cc-meta">${s.majCount}·${s.consensus}%</span></button>
+      <div class="reco ${s.majority}">
+        <div class="reco-top"><span class="reco-tag">SIGNAL</span><strong>${s.majority.toUpperCase()} $${esc(th.sym)}</strong><span class="reco-meta">${s.majCount} aligned · ${s.consensus}%</span></div>
+        <div class="reco-params">Consensus entry ≈ $${fmtPx(s.avgEntry)}${s.avgLev?` · ~${s.avgLev.toFixed(1)}× lev`:''} · net ${(s.net>=0?'+':'−')}${usdC(Math.abs(s.net))}</div>
+        <div class="reco-disc">On-chain consensus signal · informational only, not financial advice. No order is placed.</div>
+      </div>
       <div class="dst">Who's in this trade <span class="cnt">${rows.length}</span></div>`;
   rows.forEach(f=>{ const tr=getTrader(f.addr);
     b+=`<div class="fillrow" data-traderp="${esc(f.addr)}"><div>${avatarHTML(f.addr,28)}</div>
       <div class="fr-id"><div class="fr-handle mono">${tr.short}</div><div class="fr-meta num">${tr.win!=null?tr.win+'% WR · ':''}${f.lev?f.lev+'× · ':''}${relTime(f.ts)}</div></div>
-      <div class="fr-side">${sidePill(f.side)}<span class="fr-size num">${usdC(f.size)}</span></div>
-      <button class="cbtn mini" data-copytr="${esc(f.addr)}|${esc(th.sym)}|${f.side}|${f.lev||''}|${(f.entry||0).toFixed(2)}">${icoCopy}</button></div>`; });
+      <div class="fr-side">${sidePill(f.side)}<span class="fr-size num">${usdC(f.size)}</span></div></div>`; });
   document.getElementById('sheetInner').innerHTML=b+`</div>`;
   document.getElementById('sheet').classList.add('on'); document.getElementById('scrim').classList.add('on');
   document.querySelector('#sheetInner [data-act="close"]').onclick=closeSheet;
@@ -733,8 +748,7 @@ function openTraderSheet(addr){
   if(!inThreads.length) b+=`<div class="feed-empty" style="padding:16px">No open positions in tracked threads right now.</div>`;
   inThreads.forEach(({th,f})=>{ b+=`<div class="fillrow" data-thread="${th.id}"><span class="coin-tile" style="background:${th.color}">${esc(th.sym[0])}</span>
     <div class="fr-id"><div class="fr-handle">$${esc(th.sym)}</div><div class="fr-meta num">entry $${fmtPx(f.entry)}${f.lev?' · '+f.lev+'×':''}</div></div>
-    <div class="fr-side">${sidePill(f.side)}<span class="fr-size num">${usdC(f.size)}</span></div>
-    <button class="cbtn mini" data-copytr="${esc(f.addr)}|${esc(th.sym)}|${f.side}|${f.lev||''}|${(f.entry||0).toFixed(2)}">${icoCopy}</button></div>`; });
+    <div class="fr-side">${sidePill(f.side)}<span class="fr-size num">${usdC(f.size)}</span></div></div>`; });
   document.getElementById('sheetInner').innerHTML=b+`</div>`;
   document.getElementById('sheet').classList.add('on'); document.getElementById('scrim').classList.add('on');
   document.querySelector('#sheetInner [data-act="close"]').onclick=closeSheet;
