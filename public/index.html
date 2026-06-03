@@ -132,6 +132,43 @@ body{ background:#e9edf2; display:flex; justify-content:center;
 .c-right{ text-align:right; width:90px; flex-shrink:0; } .c-right .nn{ font-size:13px; font-weight:700; } .c-right .fn{ font-size:10px; margin-top:1px; }
 .warnflag{ color:var(--amber); font-size:9.5px; font-weight:700; }
 
+/* tab bar */
+.tabbar{ display:flex; gap:4px; padding:4px; margin:0 16px 6px; background:var(--surf-2); border:1px solid var(--line); border-radius:12px; }
+.tabbar button{ flex:1; height:34px; border:0; border-radius:9px; background:transparent; font-family:inherit; font-size:12.5px; font-weight:700; color:var(--tx-2); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+.tabbar button.on{ background:var(--bg-2); color:var(--tx); box-shadow:var(--shadow-sm); }
+.dotlive{ width:7px; height:7px; border-radius:50%; background:var(--pos); animation:pulse 1.6s infinite; }
+@keyframes pulse{ 0%{box-shadow:0 0 0 0 rgba(10,174,122,.45)} 70%{box-shadow:0 0 0 6px rgba(10,174,122,0)} 100%{box-shadow:0 0 0 0 rgba(10,174,122,0)} }
+
+/* social-proof badges */
+.sb{ display:inline-flex; align-items:center; gap:3px; height:17px; padding:0 6px; border-radius:6px; font-size:9.5px; font-weight:800; letter-spacing:.1px; }
+.sb.whale{ color:#2b6cb0; background:rgba(43,108,176,.12); }
+.sb.win{ color:var(--pos); background:var(--posbg); }
+.sb.hot{ color:var(--orange); background:rgba(250,74,41,.12); }
+.sb.label{ color:var(--blue); background:var(--bluebg); }
+.tiscreen[data-theme="dark"] .sb.whale{ color:#7cc0ff; background:rgba(124,192,255,.14); }
+.tiscreen[data-theme="dark"] .sb.label{ color:#9bb8ff; }
+
+/* live feed */
+.feed{ margin:0 16px 4px; display:flex; flex-direction:column; gap:8px; }
+.fcard{ background:var(--surf); border:1px solid var(--line); border-radius:13px; padding:11px 12px; box-shadow:var(--shadow-sm); }
+.fcard.flash{ animation:flashu 1.3s ease; } .fcard.flash.dn{ animation:flashd 1.3s ease; }
+@keyframes flashu{ 0%{background:var(--posbg); border-color:var(--pos);} 100%{background:var(--surf); border-color:var(--line);} }
+@keyframes flashd{ 0%{background:var(--negbg); border-color:var(--neg);} 100%{background:var(--surf); border-color:var(--line);} }
+.f-top{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.f-addr{ font-family:"SF Mono",ui-monospace,monospace; font-weight:700; font-size:12.5px; color:var(--blue); cursor:pointer; }
+.f-time{ margin-left:auto; font-size:10px; color:var(--tx-3); white-space:nowrap; }
+.f-mid{ display:flex; align-items:center; gap:8px; margin-top:9px; }
+.f-act{ font-size:11px; font-weight:800; padding:3px 8px; border-radius:7px; color:#fff; white-space:nowrap; }
+.f-act.up{ background:var(--pos); } .f-act.dn{ background:var(--neg); }
+.f-coin{ font-size:14px; font-weight:700; } .f-px{ font-size:11.5px; color:var(--tx-2); }
+.f-pnl{ margin-left:auto; font-size:13px; font-weight:800; }
+.f-bot{ display:flex; align-items:center; gap:8px; margin-top:10px; }
+.f-detail{ font-size:10.5px; color:var(--tx-3); }
+.copybtn{ margin-left:auto; display:inline-flex; align-items:center; gap:5px; height:30px; padding:0 13px; border-radius:9px; border:0;
+  background:var(--blue); color:#fff; font-family:inherit; font-size:11.5px; font-weight:700; cursor:pointer; text-decoration:none; }
+.copybtn:active{ opacity:.85; }
+.feed-empty{ text-align:center; color:var(--tx-2); font-size:12.5px; padding:34px 16px; }
+
 /* sheet */
 .sheet-scrim{ position:absolute; inset:0; z-index:60; background:rgba(0,0,0,.5); opacity:0; pointer-events:none; transition:opacity .25s ease; }
 .sheet-scrim.on{ opacity:1; pointer-events:auto; }
@@ -172,6 +209,7 @@ function usdC(n){ const a=Math.abs(n),neg=n<0?'-':''; let b; if(a>=1e6)b='$'+(a/
 function pct(n,d=2){ return (n==null?'—':n.toFixed(d)+'%'); }
 function fundPct(rate){ if(rate==null) return '—'; const v=rate*100; const a=Math.abs(v); const s=a>=0.01?v.toFixed(2):(a===0?'0':v.toFixed(4)); return (v>=0?'+':'')+s+'%'; }
 function fmtPx(v){ if(v==null||v==='') return '—'; const n=Number(v); if(!isFinite(n)) return '—'; const a=Math.abs(n); return a>=1000?commas(n):a>=1?n.toFixed(2):n.toFixed(4); }
+function fmtSz(v){ const n=Math.abs(Number(v)||0); if(n===0)return '0'; if(n<1)return (n.toFixed(4)).replace(/\.?0+$/,''); if(n<1000)return (n.toFixed(2)).replace(/\.?0+$/,''); return commas(n); }
 const N = v => v==null?null:Number(v);
 const sym = coin => (coin||'').split(':').pop();
 const sgn = v => v>=0?'pos':'neg';
@@ -182,9 +220,27 @@ const icoInfo='<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circ
 const icoMoon='<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8 8 0 019.5 4 7 7 0 1020 14.5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
 function icoSun(){ let l=''; for(let i=0;i<8;i++){const a=i*Math.PI/4; l+=`<line x1="${12+Math.cos(a)*7}" y1="${12+Math.sin(a)*7}" x2="${12+Math.cos(a)*9.2}" y2="${12+Math.sin(a)*9.2}" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`;} return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="2"/>${l}</svg>`; }
 const icoClose='<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+const icoCopy='<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M5 15V6a2 2 0 012-2h8" stroke="currentColor" stroke-width="2"/></svg>';
 
 /* ── state + model ── */
-const ST = { theme:'light', disc:false, sortLb:'net', sortLean:'net', data:null, model:null };
+const ST = { theme:'light', tab:'traders', disc:false, sortLb:'net', sortLean:'net', data:null, model:null,
+  byAddr:{}, labels:{}, feed:[], feedSeen:new Set(), winRates:{}, ws:null, feedStarted:false, wrRendered:false };
+
+/* CoinDCX deep link for the Copy-trade CTA. The exact app scheme isn't public —
+   override at runtime via window.CMM_DCX_LINK = sym => "coindcx://..." if you have it. */
+const DCX_BASE = 'https://coindcx.com/futures';
+function dcxLink(symbol){ try{ if(window.CMM_DCX_LINK) return window.CMM_DCX_LINK(symbol); }catch(_){}
+  return DCX_BASE + '?coin=' + encodeURIComponent((ST.model?ST.model.meta.dex:'xyz') + ':' + symbol); }
+
+/* social-proof badges for an address (curated label + derived on-chain signals) */
+function badgesFor(addr){
+  const out=[]; const t=ST.byAddr[addr]; const lab=ST.labels[addr];
+  if(lab){ (lab.name?[lab.name]:[]).concat(lab.tags||[]).forEach(x=> out.push(`<span class="sb label">${esc(x)}</span>`)); }
+  if(t && t.acct>=1e6) out.push(`<span class="sb whale">🐋 Whale</span>`);
+  const wr=ST.winRates[addr]; if(wr && wr.n>=5 && wr.rate>=0.6) out.push(`<span class="sb win">🎯 ${Math.round(wr.rate*100)}% win</span>`);
+  if(t && t.roi!=null && t.roi>=20) out.push(`<span class="sb hot">🔥 Hot</span>`);
+  return out.join('');
+}
 
 function buildModel(d){
   const s=d.snapshot;
@@ -279,7 +335,7 @@ function body(){
   lb.forEach((t,i)=>{ const rk=i+1;
     h+=`<div class="a-row" data-addr="${esc(t.addr)}">
       <div class="a-rank num ${rk<=3?'r'+rk:''}">${rk}</div>
-      <div class="a-addr"><div class="h mono num">${t.short}<span class="bdg exact">${esc(t.basis)}</span></div>
+      <div class="a-addr"><div class="h mono num">${t.short}${badgesFor(t.addr)}</div>
         <div class="sub num">${coinChips(t.positions)}</div></div>
       <div class="a-net num"><div class="big ${sgn(t.net)}">${usd(t.net,{sign:true})}</div>
         <div style="margin-top:3px;display:flex;justify-content:flex-end">${t.roi==null?'<span class="roi" style="color:var(--tx-3)">— ROE</span>':`<span class="chgpill ${t.roi>=0?'up':'down'}">${(t.roi>=0?'+':'')+pct(t.roi)}</span>`}</div>
@@ -360,10 +416,69 @@ function openSheet(addr){
 }
 function closeSheet(){ ST.selAddr=null; document.getElementById('sheet').classList.remove('on'); document.getElementById('scrim').classList.remove('on'); }
 
+/* ── realtime live-trades feed (Hyperliquid WS userFills) ── */
+const HL_WS='wss://api.hyperliquid.xyz/ws';
+function feedAddrs(){
+  const t=ST.model?ST.model.traders:[]; const m=new Map();
+  [...t].sort((a,b)=>b.net-a.net).slice(0,30).forEach(x=>m.set(x.addr,1));         // top by PnL
+  [...t].filter(x=>x.acct>=1e6).sort((a,b)=>b.acct-a.acct).slice(0,20).forEach(x=>m.set(x.addr,1)); // whales
+  return [...m.keys()].slice(0,45);
+}
+function startFeed(){
+  if(ST.feedStarted||!ST.model) return; const addrs=feedAddrs(); if(!addrs.length) return;
+  ST.feedStarted=true; let ws; try{ ws=new WebSocket(HL_WS); }catch(e){ ST.feedStarted=false; return; }
+  ST.ws=ws;
+  ws.onopen=()=>{ addrs.forEach(a=>ws.send(JSON.stringify({method:'subscribe',subscription:{type:'userFills',user:a}})));
+    setTimeout(()=>{ if(!ST.wrRendered){ ST.wrRendered=true; render(); } }, 3000); };  // surface win-rate badges once seeded
+  ws.onmessage=(e)=>{ let m; try{m=JSON.parse(e.data);}catch(_){return;} if(m.channel!=='userFills'||!m.data) return;
+    onFills((m.data.user||'').toLowerCase(), m.data.fills||[], !!m.data.isSnapshot); };
+  ws.onclose=()=>{ ST.feedStarted=false; ST.ws=null; setTimeout(startFeed,4000); };   // auto-reconnect
+  ws.onerror=()=>{ try{ws.close();}catch(_){} };
+}
+let feedRenderT=null;
+function onFills(addr, fills, isSnap){
+  if(!addr) return; let added=0, flash=null;
+  const dexp=(ST.model?ST.model.meta.dex:'xyz')+':';
+  for(const f of fills){
+    if(!f.coin || f.coin.indexOf(dexp)!==0) continue;     // only this dex's markets (Global Futures)
+    const key=addr+':'+f.tid; if(ST.feedSeen.has(key)) continue; ST.feedSeen.add(key);
+    const rec={ addr, tid:f.tid, sym:sym(f.coin), dir:f.dir||'', px:+f.px, sz:+f.sz, closedPnl:+f.closedPnl||0, time:+f.time };
+    ST.feed.push(rec); added++;
+    if(/Close/i.test(rec.dir)){ const wr=ST.winRates[addr]||(ST.winRates[addr]={win:0,n:0,rate:0}); wr.n++; if(rec.closedPnl>0)wr.win++; wr.rate=wr.win/wr.n; }
+    if(!isSnap) flash=rec;
+  }
+  if(!added) return;
+  ST.feed.sort((a,b)=>b.time-a.time); if(ST.feed.length>200) ST.feed.length=200;
+  if(ST.tab==='live'){ if(feedRenderT) return; feedRenderT=setTimeout(()=>{ feedRenderT=null; renderFeed(flash); }, 450); }
+}
+function bullish(dir){ return /Open Long|Close Short/i.test(dir); }
+function feedCard(r, flash){
+  const bull=bullish(r.dir), isClose=/Close/i.test(r.dir);
+  const short=r.addr.slice(0,6)+'…'+r.addr.slice(-4);
+  const pnl=isClose?`<span class="f-pnl ${r.closedPnl>=0?'pos':'neg'}">${usd(r.closedPnl,{sign:true})}</span>`:'';
+  return `<div class="fcard${flash?(' flash'+(bull?'':' dn')):''}">
+    <div class="f-top"><span class="f-addr" data-addr="${esc(r.addr)}">${short}</span>${badgesFor(r.addr)}<span class="f-time">${relTime(r.time)}</span></div>
+    <div class="f-mid"><span class="f-act ${bull?'up':'dn'}">${esc(r.dir||'Trade')}</span><span class="f-coin">${esc(r.sym)}</span>
+      <span class="f-px">${fmtSz(r.sz)} @ ${fmtPx(r.px)}</span>${pnl}</div>
+    <div class="f-bot"><span class="f-detail">${isClose?'Exit':'Entry'} · notional ${usdC(r.px*r.sz)}</span>
+      <a class="copybtn" href="${dcxLink(r.sym)}" target="_blank" rel="noopener">${icoCopy} Copy trade</a></div></div>`;
+}
+function feedListHTML(flash){ return ST.feed.slice(0,80).map(r=>feedCard(r, flash&&r.tid===flash.tid&&r.addr===flash.addr)).join('')
+  || '<div class="feed-empty">Connecting to the live trade stream…<br>waiting for whales &amp; top traders to act.</div>'; }
+function renderFeed(flash){ const el=document.getElementById('feedList'); if(el) el.innerHTML=feedListHTML(flash); }
+function tabbarHTML(){ return `<div class="tabbar">
+  <button data-tab="traders" class="${ST.tab==='traders'?'on':''}">Top Traders</button>
+  <button data-tab="live" class="${ST.tab==='live'?'on':''}"><span class="dotlive"></span> Live Trades</button></div>`; }
+function liveBody(){ return `<div class="sec"><h3>Live trades</h3><span class="hint">whales &amp; top traders · realtime</span></div>
+  <div class="feed" id="feedList">${feedListHTML(null)}</div>`+footerHTML(); }
+
 /* ── render + events ── */
-function render(){ document.getElementById('screen').setAttribute('data-theme',ST.theme); document.getElementById('scroll').innerHTML=headerHTML()+body(); }
+function render(){ document.getElementById('screen').setAttribute('data-theme',ST.theme);
+  document.getElementById('scroll').innerHTML=headerHTML()+tabbarHTML()+(ST.tab==='live'?liveBody():body());
+  if(ST.tab==='live') startFeed(); }
 document.getElementById('scroll').addEventListener('click',e=>{
   const a=e.target.closest('[data-act]'); if(a){ if(a.dataset.act==='theme'){ST.theme=ST.theme==='dark'?'light':'dark';} if(a.dataset.act==='disc'){ST.disc=!ST.disc;} render(); return; }
+  const tb=e.target.closest('[data-tab]'); if(tb){ ST.tab=tb.dataset.tab; render(); return; }
   const sl=e.target.closest('[data-sortlb]'); if(sl){ ST.sortLb=sl.dataset.sortlb; render(); return; }
   const sc=e.target.closest('[data-sortlean]'); if(sc){ ST.sortLean=sc.dataset.sortlean; render(); return; }
   const row=e.target.closest('[data-addr]'); if(row){ openSheet(row.dataset.addr); }
@@ -382,11 +497,15 @@ function load(initial){
     const ts=Number(d.snapshot.created_at);
     if(!initial && ts===ST.lastTs) return;            // unchanged → no churn
     ST.lastTs=ts; ST.data=d; ST.model=buildModel(d); ST.model.meta.snapMs=ts;
+    ST.byAddr={}; ST.model.traders.forEach(t=>ST.byAddr[t.addr]=t);   // for badges/feed lookup
     const sheetOpen=document.getElementById('sheet').classList.contains('on');
     if(initial || !sheetOpen) render();               // don't yank an open sheet out
-    tick();
+    tick(); startFeed();                              // warm the realtime feed + win-rate badges
   });
 }
+/* curated wallet labels (influencer / known funds) — derived badges (whale, win-rate, hot) are automatic */
+fetch('labels.json',{cache:'no-store'}).then(r=>r.ok?r.json():{}).then(j=>{ const m=(j&&j.labels)||{}; const o={};
+  Object.keys(m).forEach(k=>o[k.toLowerCase()]=m[k]); ST.labels=o; if(ST.model) render(); }).catch(()=>{});
 load(true).catch(e=>{ document.getElementById('scroll').innerHTML='<div class="loading">Could not load intel_snapshot.json — run the ranker with --export.<br><br>'+esc(e.message)+'</div>'; });
 setInterval(tick, 5000);                               // freshness label
 setInterval(()=>load(false).catch(()=>{}), 30000);     // poll for a newer snapshot

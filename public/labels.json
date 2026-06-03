@@ -1,0 +1,6 @@
+{
+  "_README": "Curated wallet social-proof labels. Map a LOWERCASE 0x address to { name, tags }. These render as badges next to the trader. On-chain badges (Whale, win-rate %, Hot) are derived automatically and need NO entry here. Only add identity/editorial labels (influencer, fund, insider, KOL) for wallets you can actually substantiate — they are public claims about real wallets. The example below uses a non-real address so nothing false is shown.",
+  "labels": {
+    "0x0000000000000000000000000000000000000001": { "name": "Example KOL", "tags": ["Influencer"] }
+  }
+}
