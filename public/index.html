@@ -218,9 +218,15 @@ body{ background:#e9edf2; display:flex; justify-content:center;
 .coin-tile{ width:24px; height:24px; border-radius:7px; color:#fff; font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .coin-sym{ font-size:16px; font-weight:800; letter-spacing:-.2px; }
 .coin-px{ font-size:11.5px; color:var(--tx-3); }
-.heatbadge{ margin-left:auto; display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:800; letter-spacing:.4px; padding:3px 8px; border-radius:999px; }
-.heatbadge.cool{ color:var(--tx-2); background:var(--surf-2); } .heatbadge.warm{ color:var(--blue); background:var(--bluebg); }
-.heatbadge.hot{ color:var(--amber); background:var(--amberbg); } .heatbadge.urgent{ color:#fff; background:var(--urgent); animation:pulse 1.2s infinite; }
+.heatbadge{ margin-left:auto; display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:800; letter-spacing:.4px; padding:3px 9px; border-radius:999px; }
+.heatbadge .flame{ font-size:9px; line-height:1; }
+.heatbadge.cool{ color:var(--tx-3); background:var(--surf-2); box-shadow:inset 0 0 0 1px var(--line); }
+.heatbadge.warm{ color:var(--blue); background:var(--bluebg); }
+.heatbadge.hot{ color:#fff; background:linear-gradient(180deg,#f7b733,#e0860f); }
+.heatbadge.urgent{ color:#fff; background:linear-gradient(135deg,#ff9d2f,#ff4d3d 70%); box-shadow:0 0 0 1px rgba(255,90,60,.35), 0 4px 14px -4px rgba(255,77,61,.7); animation:ember 1.7s ease-in-out infinite; }
+.heatbadge.urgent .flame{ animation:flick .9s ease-in-out infinite; }
+@keyframes ember{ 0%,100%{ box-shadow:0 0 0 1px rgba(255,90,60,.3), 0 3px 10px -5px rgba(255,77,61,.55);} 50%{ box-shadow:0 0 0 1px rgba(255,90,60,.55), 0 7px 20px -5px rgba(255,77,61,.9);} }
+@keyframes flick{ 0%,100%{ transform:translateY(0) scale(1);} 50%{ transform:translateY(-.5px) scale(1.12);} }
 .th-claim{ display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
 .sidepill{ display:inline-flex; align-items:center; gap:5px; font-weight:800; font-size:11px; padding:4px 9px; border-radius:8px; }
 .sidepill.long{ color:var(--pos); background:var(--posbg); } .sidepill.short{ color:var(--neg); background:var(--negbg); }
@@ -609,10 +615,12 @@ function threadStats(th, now){
   const maj=th.traders.filter(t=>t.side===majority); const avgEntry=maj.reduce((a,t)=>a+(t.entry||0),0)/Math.max(1,maj.length);
   const levs=maj.filter(t=>t.lev>0); const avgLev=levs.length?levs.reduce((a,t)=>a+t.lev,0)/levs.length:null;
   const windowMin=Math.max(1,Math.round((now-th.firstFill)/60000)); const recency=Math.max(0,1-(now-th.lastFill)/(8*60*1000));
-  const heat=total*6+(consensus-50)*0.9+recency*40+Math.min(30,gross/400000)+(windowMin<15?14:0);
+  // weight conviction (trader count + gross size); discount consensus for tiny threads
+  // (1 trader = trivial "100%"), keep recency secondary so SURGING means real alignment.
+  const heat=total*9+Math.min(45,gross/250000)+Math.max(0,consensus-60)*0.8*(total>=2?1:0.3)+recency*18+(windowMin<15?8:0);
   return {longs,shorts,majority,majCount,total,consensus,net,gross,avgEntry,avgLev,lastFill:th.lastFill,windowMin,heat};
 }
-function heatBadge(h){ if(h>95)return['URGENT','urgent','🔥']; if(h>72)return['HEATING UP','hot','🔥']; if(h>50)return['ACTIVE','warm','•']; return['WATCH','cool','•']; }
+function heatBadge(h){ if(h>100)return['SURGING','urgent','🔥']; if(h>72)return['HEATING UP','hot','🔥']; if(h>50)return['ACTIVE','warm','✦']; return['WATCH','cool','•']; }
 function sparkSVG(data,color,w,h,markers){ const mn=Math.min(...data),mx=Math.max(...data),rg=(mx-mn)||1;
   const X=i=>(i/(data.length-1))*w, Y=v=>h-((v-mn)/rg)*h;
   const path=data.map((v,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' '); const gid='g'+Math.random().toString(36).slice(2,6);
@@ -625,13 +633,13 @@ function sidePill(side,big,label){ return `<span class="sidepill ${side}${big?' 
 function markersFor(th){ return th.traders.slice(0,6).map((t,i)=>({frac:0.2+0.6*(i/Math.max(1,Math.min(6,th.traders.length)-1)),side:t.side})); }
 
 function threadCardHTML(th, now){
-  const s=threadStats(th,now); const [hl,hc]=heatBadge(s.heat);
-  const flagged=s.heat>95?'urgent':s.heat>72?'hot':'';
+  const s=threadStats(th,now); const [hl,hc,hi]=heatBadge(s.heat);
+  const flagged=hc==='urgent'?'urgent':hc==='hot'?'hot':'';
   return `<div class="thread side-${s.majority} ${flagged} ${ST.threadSel===th.id?'sel':''}" data-thread="${th.id}">
     <div class="th-accent" style="background:${th.color}"></div>
     <div class="th-top"><span class="coin-tile" style="background:${th.color}">${esc(th.sym[0])}</span>
       <span class="coin-sym">${esc(th.sym)}</span><span class="coin-px num">$${fmtPx(th.price)}</span>
-      <span class="heatbadge ${hc}">${heatBadge(s.heat)[2]} ${hl}</span></div>
+      <span class="heatbadge ${hc}"><span class="flame">${hi}</span>${hl}</span></div>
     <div class="th-claim">${sidePill(s.majority,true,`<strong>${s.majCount} top traders</strong> ${s.majority.toUpperCase()}`)}
       <span class="claim-win">in last ${s.windowMin}m · ${s.consensus}% agree</span></div>
     <div class="th-body"><div class="th-left">${avatarStack(th.traders.map(t=>t.addr),7,28)}
@@ -648,7 +656,7 @@ function threadCardHTML(th, now){
 function bannerHTML(threads, now){
   const ranked=threads.map(th=>({th,s:threadStats(th,now)})).sort((a,b)=>b.s.heat-a.s.heat); const top=ranked[0];
   if(!top||top.s.heat<60) return ''; const {th,s}=top;
-  return `<div class="hbanner ${s.majority} ${s.heat>95?'urgent':''}" data-thread="${th.id}">
+  return `<div class="hbanner ${s.majority} ${s.heat>110?'urgent':''}" data-thread="${th.id}">
     <div class="hb-bolt">⚡</div><div class="hb-text">
       <div class="hb-l1">Consensus forming on <span style="color:${th.color}">$${esc(th.sym)}</span></div>
       <div class="hb-l2"><strong>${s.majCount} top traders</strong> ${s.majority==='long'?'opened':'opened'} <span class="${s.majority}">${s.majority.toUpperCase()}</span> in ${s.windowMin}m · net ${usdC(Math.abs(s.net))} · ${s.consensus}% aligned</div>
