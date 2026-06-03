@@ -349,7 +349,7 @@ const icoClose='<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><pat
 const icoCopy='<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M5 15V6a2 2 0 012-2h8" stroke="currentColor" stroke-width="2"/></svg>';
 
 /* ── state + model ── */
-const ST = { theme:'light', tab:'traders', disc:false, sortLb:'net', sortLean:'net', data:null, model:null,
+const ST = { theme:'light', tab:'live', disc:false, sortLb:'net', sortLean:'net', data:null, model:null,
   byAddr:{}, labels:{}, feed:[], orders:{}, feedSeen:new Set(), winRates:{}, liveMkt:{}, ws:null, feedStarted:false, wrRendered:false,
   paused:false, buffered:0, speed:1, frozenNow:0, threadSel:null, copyCtx:null };
 
@@ -690,8 +690,8 @@ function liveContentHTML(){
 }
 function renderFeed(){ const el=document.getElementById('liveContent'); if(el) el.innerHTML=liveContentHTML(); }
 function tabbarHTML(){ return `<div class="tabbar">
-  <button data-tab="traders" class="${ST.tab==='traders'?'on':''}">Top Traders</button>
-  <button data-tab="live" class="${ST.tab==='live'?'on':''}"><span class="dotlive"></span> Live Trades</button></div>`; }
+  <button data-tab="live" class="${ST.tab==='live'?'on':''}"><span class="dotlive"></span> Live Trades</button>
+  <button data-tab="traders" class="${ST.tab==='traders'?'on':''}">Top Traders</button></div>`; }
 function liveBody(){ return controlBarHTML()+`<div id="liveContent">${liveContentHTML()}</div>`+footerHTML(); }
 
 /* ===== Trade detail + trader profile (bottom sheet) ===== */
