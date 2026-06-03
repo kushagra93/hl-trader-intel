@@ -168,6 +168,11 @@ body{ background:#e9edf2; display:flex; justify-content:center;
   background:var(--blue); color:#fff; font-family:inherit; font-size:11.5px; font-weight:700; cursor:pointer; text-decoration:none; }
 .copybtn:active{ opacity:.85; }
 .feed-empty{ text-align:center; color:var(--tx-2); font-size:12.5px; padding:34px 16px; }
+.fcard.long{ box-shadow:inset 3px 0 0 var(--pos), var(--shadow-sm); padding-left:14px; }
+.fcard.short{ box-shadow:inset 3px 0 0 var(--neg), var(--shadow-sm); padding-left:14px; }
+.f-tp{ font-size:10.5px; font-weight:700; }
+.f-bot2{ display:flex; justify-content:space-between; gap:8px; margin-top:8px; flex-wrap:wrap; }
+.f-bot2 .f-detail{ font-variant-numeric:tabular-nums; }
 
 /* sheet */
 .sheet-scrim{ position:absolute; inset:0; z-index:60; background:rgba(0,0,0,.5); opacity:0; pointer-events:none; transition:opacity .25s ease; }
@@ -224,7 +229,7 @@ const icoCopy='<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect
 
 /* ── state + model ── */
 const ST = { theme:'light', tab:'traders', disc:false, sortLb:'net', sortLean:'net', data:null, model:null,
-  byAddr:{}, labels:{}, feed:[], feedSeen:new Set(), winRates:{}, ws:null, feedStarted:false, wrRendered:false };
+  byAddr:{}, labels:{}, feed:[], orders:{}, feedSeen:new Set(), winRates:{}, liveMkt:{}, ws:null, feedStarted:false, wrRendered:false };
 
 /* CoinDCX deep link for the Copy-trade CTA. The exact app scheme isn't public —
    override at runtime via window.CMM_DCX_LINK = sym => "coindcx://..." if you have it. */
@@ -359,6 +364,15 @@ function body(){
 
 /* ── drill-down sheet (fetches LIVE positions from Hyperliquid, snapshot fallback) ── */
 const HL_INFO='https://api.hyperliquid.xyz/info';
+/* live market context (fresh mark/funding for the feed & sheet — snapshot ctx can be hours old) */
+function refreshMarkets(){
+  if(!ST.model) return Promise.resolve();
+  return fetch(HL_INFO,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'metaAndAssetCtxs',dex:ST.model.meta.dex})})
+    .then(r=>r.json()).then(arr=>{ const meta=arr[0],ctxs=arr[1]; const u=(meta&&meta.universe)||[]; const m={};
+      u.forEach((c,i)=>{ if(c.isDelisted)return; const x=ctxs[i]||{}; m[sym(c.name)]={ mark:x.markPx!=null?+x.markPx:null, funding:x.funding!=null?+x.funding:null, oi:+x.openInterest||null, vol:+x.dayNtlVlm||null }; });
+      ST.liveMkt=m; }).catch(()=>{});
+}
+function mktFor(s){ return (ST.liveMkt&&ST.liveMkt[s]) || (ST.model&&ST.model.mkt[s]) || {}; }
 function fetchLivePositions(addr,dex){
   return fetch(HL_INFO,{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({type:'clearinghouseState',user:addr,dex})}).then(r=>r.json()).then(ch=>{
@@ -389,7 +403,7 @@ function renderSheet(t, positions, ov){
       ${kv('Funding (window)',usd(t.funding,{sign:true}),sgn(t.funding))}</div>
     <div class="sec" style="padding:0 2px 8px"><h3>Holding now</h3><span class="hint num">acct ${usd(acct)} · ${usdC(posTotal)} notional</span></div>`;
   if(!positions.length) b+=`<div class="loading" style="padding:18px">No open positions on this dex.</div>`;
-  positions.forEach(p=>{ const c=ST.model.mkt[p.sym]||{};
+  positions.forEach(p=>{ const c=mktFor(p.sym);
     b+=`<div class="pos-card"><div class="pos-hd"><span class="sym">xyz:${esc(p.sym)}</span>
       <span class="bdg ${p.side==='LONG'?'long':'short'}">${p.side}</span>
       <span class="num" style="margin-left:auto;font-size:12px;font-weight:700;color:${p.unreal>=0?'var(--pos)':'var(--neg)'}">${usd(p.unreal,{sign:true})}</span></div>
@@ -436,34 +450,47 @@ function startFeed(){
   ws.onerror=()=>{ try{ws.close();}catch(_){} };
 }
 let feedRenderT=null;
+function recomputeWinRates(){ const w={}; for(const o of ST.feed){ if(/Close/i.test(o.dir)){ const r=w[o.addr]||(w[o.addr]={win:0,n:0,rate:0}); r.n++; if(o.pnl>0)r.win++; r.rate=r.win/r.n; } } ST.winRates=w; }
 function onFills(addr, fills, isSnap){
-  if(!addr) return; let added=0, flash=null;
-  const dexp=(ST.model?ST.model.meta.dex:'xyz')+':';
+  if(!addr) return; const dexp=(ST.model?ST.model.meta.dex:'xyz')+':'; let touched=false, flash=null;
   for(const f of fills){
-    if(!f.coin || f.coin.indexOf(dexp)!==0) continue;     // only this dex's markets (Global Futures)
-    const key=addr+':'+f.tid; if(ST.feedSeen.has(key)) continue; ST.feedSeen.add(key);
-    const rec={ addr, tid:f.tid, sym:sym(f.coin), dir:f.dir||'', px:+f.px, sz:+f.sz, closedPnl:+f.closedPnl||0, time:+f.time };
-    ST.feed.push(rec); added++;
-    if(/Close/i.test(rec.dir)){ const wr=ST.winRates[addr]||(ST.winRates[addr]={win:0,n:0,rate:0}); wr.n++; if(rec.closedPnl>0)wr.win++; wr.rate=wr.win/wr.n; }
-    if(!isSnap) flash=rec;
+    if(!f.coin || f.coin.indexOf(dexp)!==0) continue;            // only this dex (Global Futures)
+    const fk=addr+':'+f.tid; if(ST.feedSeen.has(fk)) continue; ST.feedSeen.add(fk);
+    const oid=(f.oid!=null?f.oid:f.tid), key=addr+':'+oid;        // aggregate partial fills into one order
+    const px=+f.px||0, sz=+f.sz||0, cp=+f.closedPnl||0, t=+f.time||0, start=Math.abs(+f.startPosition||0);
+    let o=ST.orders[key];
+    if(!o){ o={ addr, oid, sym:sym(f.coin), dir:f.dir||'', sz:0, notional:0, pnl:0, time:t, start, n:0 }; ST.orders[key]=o; ST.feed.push(o); }
+    o.sz+=sz; o.notional+=px*sz; o.pnl+=cp; o.n++; if(t>o.time)o.time=t; if(start>o.start)o.start=start; o.avgPx=o.sz?o.notional/o.sz:px;
+    touched=true; if(!isSnap) flash=o;
   }
-  if(!added) return;
-  ST.feed.sort((a,b)=>b.time-a.time); if(ST.feed.length>200) ST.feed.length=200;
+  if(!touched) return;
+  recomputeWinRates();
+  ST.feed.sort((a,b)=>b.time-a.time);
+  if(ST.feed.length>120){ ST.feed.splice(120).forEach(o=>delete ST.orders[o.addr+':'+o.oid]); }
   if(ST.tab==='live'){ if(feedRenderT) return; feedRenderT=setTimeout(()=>{ feedRenderT=null; renderFeed(flash); }, 450); }
 }
-function bullish(dir){ return /Open Long|Close Short/i.test(dir); }
-function feedCard(r, flash){
-  const bull=bullish(r.dir), isClose=/Close/i.test(r.dir);
-  const short=r.addr.slice(0,6)+'…'+r.addr.slice(-4);
-  const pnl=isClose?`<span class="f-pnl ${r.closedPnl>=0?'pos':'neg'}">${usd(r.closedPnl,{sign:true})}</span>`:'';
-  return `<div class="fcard${flash?(' flash'+(bull?'':' dn')):''}">
-    <div class="f-top"><span class="f-addr" data-addr="${esc(r.addr)}">${short}</span>${badgesFor(r.addr)}<span class="f-time">${relTime(r.time)}</span></div>
-    <div class="f-mid"><span class="f-act ${bull?'up':'dn'}">${esc(r.dir||'Trade')}</span><span class="f-coin">${esc(r.sym)}</span>
-      <span class="f-px">${fmtSz(r.sz)} @ ${fmtPx(r.px)}</span>${pnl}</div>
-    <div class="f-bot"><span class="f-detail">${isClose?'Exit':'Entry'} · notional ${usdC(r.px*r.sz)}</span>
-      <a class="copybtn" href="${dcxLink(r.sym)}" target="_blank" rel="noopener">${icoCopy} Copy trade</a></div></div>`;
+function feedCard(o, flash){
+  const open=/Open/i.test(o.dir), side=/Short/i.test(o.dir)?'SHORT':'LONG';
+  const bull=(open&&side==='LONG')||(!open&&side==='SHORT');
+  const closePct=(!open&&o.start>0)?Math.min(100,Math.round(o.sz/o.start*100)):null;
+  const verb=open?(o.start>1e-9?'Added to':'Opened'):(closePct!=null&&closePct>=98?'Closed':'Reduced');
+  const t=ST.byAddr[o.addr], acct=t?t.acct:0, acctPct=acct>0?o.notional/acct*100:null;
+  const ctx=mktFor(o.sym);
+  const short=o.addr.slice(0,6)+'…'+o.addr.slice(-4);
+  const traderPnl=t?`<span class="f-tp ${t.net>=0?'pos':'neg'}">${usd(t.net,{sign:true})}·7d</span>`:'';
+  const pnl=!open?`<span class="f-pnl ${o.pnl>=0?'pos':'neg'}">${usd(o.pnl,{sign:true})}</span>`:'';
+  const left=open?`avg ${fmtPx(o.avgPx)}${acctPct!=null?` · ≈${acctPct<1?acctPct.toFixed(1):Math.round(acctPct)}% of book`:''}`
+                 :`avg ${fmtPx(o.avgPx)}${closePct!=null?` · ${closePct}% of position`:''}`;
+  const right=ctx.mark!=null?`mark ${fmtPx(ctx.mark)}${ctx.funding!=null?` · fund ${fundPct(ctx.funding)}`:''}`:'';
+  return `<div class="fcard ${bull?'long':'short'}${flash?' flash'+(bull?'':' dn'):''}">
+    <div class="f-top"><span class="f-addr" data-addr="${esc(o.addr)}">${short}</span>${badgesFor(o.addr)}${traderPnl}<span class="f-time">${relTime(o.time)}</span></div>
+    <div class="f-mid"><span class="f-act ${bull?'up':'dn'}">${verb} ${side}</span><span class="f-coin">${esc(o.sym)}</span>
+      <span class="f-px">${fmtSz(o.sz)} · ${usdC(o.notional)}</span>${pnl}</div>
+    <div class="f-bot2"><span class="f-detail">${left}</span><span class="f-detail">${right}</span></div>
+    <div class="f-bot"><span class="f-detail">${open?'Entry':'Exit'} · ${o.n} fill${o.n>1?'s':''}</span>
+      <a class="copybtn" href="${dcxLink(o.sym)}" target="_blank" rel="noopener">${icoCopy} Copy trade</a></div></div>`;
 }
-function feedListHTML(flash){ return ST.feed.slice(0,80).map(r=>feedCard(r, flash&&r.tid===flash.tid&&r.addr===flash.addr)).join('')
+function feedListHTML(flash){ return ST.feed.slice(0,80).map(r=>feedCard(r, flash&&r===flash)).join('')
   || '<div class="feed-empty">Connecting to the live trade stream…<br>waiting for whales &amp; top traders to act.</div>'; }
 function renderFeed(flash){ const el=document.getElementById('feedList'); if(el) el.innerHTML=feedListHTML(flash); }
 function tabbarHTML(){ return `<div class="tabbar">
@@ -500,7 +527,7 @@ function load(initial){
     ST.byAddr={}; ST.model.traders.forEach(t=>ST.byAddr[t.addr]=t);   // for badges/feed lookup
     const sheetOpen=document.getElementById('sheet').classList.contains('on');
     if(initial || !sheetOpen) render();               // don't yank an open sheet out
-    tick(); startFeed();                              // warm the realtime feed + win-rate badges
+    tick(); startFeed(); refreshMarkets();            // warm the realtime feed + live marks
   });
 }
 /* curated wallet labels (influencer / known funds) — derived badges (whale, win-rate, hot) are automatic */
@@ -509,6 +536,7 @@ fetch('labels.json',{cache:'no-store'}).then(r=>r.ok?r.json():{}).then(j=>{ cons
 load(true).catch(e=>{ document.getElementById('scroll').innerHTML='<div class="loading">Could not load intel_snapshot.json — run the ranker with --export.<br><br>'+esc(e.message)+'</div>'; });
 setInterval(tick, 5000);                               // freshness label
 setInterval(()=>load(false).catch(()=>{}), 30000);     // poll for a newer snapshot
+setInterval(refreshMarkets, 30000);                    // keep mark/funding fresh
 </script>
 </body>
 </html>
