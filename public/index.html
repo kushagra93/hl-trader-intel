@@ -456,7 +456,8 @@ function coinChips(positions, cap=6){
 
 /* ── body (Direction A) ── */
 function body(){
-  const {traders,coins,meta}=ST.model;
+  const {traders,meta}=ST.model;
+  const coins=ST.model.coins.filter(c=>isStockOrIndex(c.sym));   // stocks & indices only
   const cs=[...coins].sort((a,b)=>Math.abs(b.net)-Math.abs(a.net));
   const topShort=cs.find(c=>c.net<0)||cs[0]||{sym:'—',net:0,short:0,long:0};
 
@@ -667,10 +668,20 @@ function getTrader(addr){ const t=ST.byAddr[addr]||{}; const wr=ST.winRates[addr
     label:lab, whale:(t.acct||0)>=1e6 }; }
 const ASSET_COLORS={GOOGL:'#5BB8FF',NVDA:'#16C784',TSLA:'#EA3943',AAPL:'#9AA8C7',META:'#6E8BFF',SILVER:'#C7D0E0',GOLD:'#F5A623',BRENTOIL:'#FF7A45',MSFT:'#5BB8FF',AMZN:'#FF9900',INTC:'#3a7de0'};
 function assetColor(s){ return ASSET_COLORS[s]||`hsl(${hueFromAddr('0x'+s)} 62% 58%)`; }
+/* keep only stocks & indices — exclude commodities, FX, crypto */
+const EXCLUDE_ASSETS=new Set([
+  // commodities
+  'GOLD','SILVER','PLATINUM','PALLADIUM','COPPER','NATGAS','NATURALGAS','BRENTOIL','BRENT','CL','WTI','OIL','CRUDE','GAS','GASOLINE','HEATINGOIL','CORN','WHEAT','SOYBEAN','SOYBEANS','COFFEE','COCOA','SUGAR','COTTON','ALUMINIUM','ALUMINUM','NICKEL','ZINC','LEAD','TIN','LUMBER','URANIUM','RICE','OATS','CATTLE','HOGS',
+  // FX
+  'EUR','JPY','GBP','AUD','CAD','CHF','NZD','CNH','CNY','MXN','SEK','NOK','DKK','USD','DXY','HKD','INR','SGD','ZAR','TRY','BRL','PLN','EURUSD','USDJPY','GBPUSD','AUDUSD','USDCAD',
+  // crypto
+  'BTC','ETH','SOL','XRP','DOGE','BNB','ADA','AVAX','LINK','LTC','BCH','TRX','DOT','MATIC','SHIB','PEPE','WIF','PURR','PURRDAT','HYPE','SUI','APT','ARB','OP','TON','NEAR','ATOM','INJ','TIA','SEI','FIL','ICP','UNI','AAVE','MKR','ENA','ONDO','JUP','BONK','FARTCOIN','KPEPE','MOODENG','KSHIB','KBONK'
+]);
+function isStockOrIndex(symRaw){ const s=(symRaw||'').toUpperCase(); return !!s && !EXCLUDE_ASSETS.has(s); }
 function buildThreads(now){
   const bySym={}; for(const o of ST.feed){ (bySym[o.sym]||(bySym[o.sym]=[])).push(o); }
   const out=[];
-  for(const s in bySym){ const orders=bySym[s]; const byA={};
+  for(const s in bySym){ if(!isStockOrIndex(s)) continue; const orders=bySym[s]; const byA={};
     for(const o of orders){ const a=byA[o.addr]||(byA[o.addr]={addr:o.addr,ts:0,notion:0,pxw:0,last:o}); a.ts=Math.max(a.ts,o.time); a.notion+=o.notional; a.pxw+=o.avgPx*o.notional; if(o.time>=a.last.time)a.last=o; }
     const traders=Object.values(byA).map(a=>{ const t=ST.byAddr[a.addr]; const pos=t&&t.positions?t.positions.find(p=>p.sym===s):null;
       return { addr:a.addr, side: pos?(pos.side==='LONG'?'long':'short'):(/Open Long|Close Short/i.test(a.last.dir)?'long':'short'),
