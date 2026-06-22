@@ -296,6 +296,16 @@ body.in-tg{ background:var(--tg-out,#0b0d11); }
 .reco-meta{ margin-left:auto; font-size:10.5px; font-weight:600; color:var(--tx-2); }
 .reco-params{ font-size:12px; color:var(--tx); margin-top:7px; font-variant-numeric:tabular-nums; }
 .reco-disc{ font-size:10px; color:var(--tx-3); margin-top:8px; line-height:1.4; }
+/* smart-money order map (TP / SL / entries from open orders) */
+.om{ border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.om-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 12px; }
+.om-row+.om-row{ border-top:1px solid var(--line); }
+.om-k{ font-size:11px; color:var(--tx-2); font-weight:600; display:flex; align-items:center; gap:6px; }
+.om-n{ font-size:9px; font-weight:700; color:var(--tx-3); background:var(--surf-2); border-radius:999px; padding:1px 6px; }
+.om-v{ font-size:13px; font-weight:700; text-align:right; }
+.om-pc{ font-size:10px; font-weight:700; }
+.om-rng{ display:block; font-size:10px; font-weight:500; color:var(--tx-3); margin-top:1px; }
+.om-empty{ padding:12px; font-size:11.5px; color:var(--tx-3); text-align:center; }
 
 /* sheet */
 .sheet-scrim{ position:absolute; inset:0; z-index:60; background:rgba(0,0,0,.5); opacity:0; pointer-events:none; transition:opacity .25s ease; }
@@ -354,7 +364,7 @@ const icoCopy='<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect
 
 /* ── state + model ── */
 const ST = { theme:'light', tab:'live', disc:false, sortLb:'net', sortLean:'net', data:null, model:null,
-  byAddr:{}, labels:{}, feed:[], orders:{}, feedSeen:new Set(), winRates:{}, liveMkt:{}, ws:null, feedStarted:false, wrRendered:false,
+  byAddr:{}, labels:{}, feed:[], orders:{}, ordersCache:{}, feedSeen:new Set(), winRates:{}, liveMkt:{}, ws:null, feedStarted:false, wrRendered:false,
   paused:false, buffered:0, speed:1, frozenNow:0, threadSel:null, copyCtx:null };
 
 /* ── Telegram Mini App integration ── */
@@ -520,6 +530,35 @@ function refreshMarkets(){
       ST.liveMkt=m; }).catch(()=>{});
 }
 function mktFor(s){ return (ST.liveMkt&&ST.liveMkt[s]) || (ST.model&&ST.model.mkt[s]) || {}; }
+
+/* ── open orders → take-profit / stop / entry levels (smart-money order map) ── */
+function fetchOpenOrders(addr){
+  const c=ST.ordersCache[addr]; if(c && Date.now()-c.ts<20000) return Promise.resolve(c.orders);
+  return fetch(HL_INFO,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'frontendOpenOrders',user:addr,dex:(ST.model?ST.model.meta.dex:'xyz')})})
+    .then(r=>r.json()).then(o=>{ o=Array.isArray(o)?o:[]; ST.ordersCache[addr]={ts:Date.now(),orders:o}; return o; }).catch(()=>[]);
+}
+function buildOrderMap(th, perTrader){
+  const tp=[],sl=[],entry=[];
+  perTrader.forEach(orders=> orders.forEach(o=>{
+    if(sym(o.coin)!==th.sym) return;
+    const px = o.isTrigger ? +o.triggerPx : +o.limitPx; if(!px||px<=0) return;
+    if(/Stop/i.test(o.orderType||'')) sl.push(px);
+    else if(/Take Profit/i.test(o.orderType||'') || o.reduceOnly) tp.push(px);
+    else entry.push(px);
+  }));
+  const liq=[]; th.traders.forEach(t=>{ const p=((ST.byAddr[t.addr]||{}).positions||[]).find(x=>x.sym===th.sym); const l=p&&+p.liq; if(l>0) liq.push(l); });
+  const rng=a=>{ if(!a.length) return null; const s=a.slice().sort((x,y)=>x-y); return [s[0], s[s.length-1], s[Math.floor(s.length/2)], s.length]; };
+  return { tp:rng(tp), sl:rng(sl), entry:rng(entry), liq:rng(liq) };
+}
+function orderMapHTML(th, map){
+  const mk=mktFor(th.sym).mark; const pc=p=> mk?` <span class="om-pc">${p>=mk?'+':''}${((p-mk)/mk*100).toFixed(1)}%</span>`:'';
+  const line=(label,r,cls)=> r?`<div class="om-row"><span class="om-k">${label} <span class="om-n">${r[3]}</span></span><span class="om-v num ${cls||''}">$${fmtPx(r[2])}${pc(r[2])} <span class="om-rng">$${fmtPx(r[0])}–$${fmtPx(r[1])}</span></span></div>`:'';
+  let rows='';
+  rows+=line('Take-profit', map.tp,'pos');
+  rows+= map.sl ? line('Stop-loss', map.sl,'neg') : line('Liquidation band', map.liq,'neg');
+  rows+=line('Resting entries', map.entry,'');
+  return rows || `<div class="om-empty">No resting orders on $${esc(th.sym)} from these traders — they manage exits manually or with market orders.</div>`;
+}
 function fetchLivePositions(addr,dex){
   return fetch(HL_INFO,{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({type:'clearinghouseState',user:addr,dex})}).then(r=>r.json()).then(ch=>{
@@ -744,6 +783,8 @@ function openThreadSheet(id){
         <div class="reco-params">Consensus entry ≈ $${fmtPx(s.avgEntry)}${s.avgLev?` · ~${s.avgLev.toFixed(1)}× lev`:''} · net ${(s.net>=0?'+':'−')}${usdC(Math.abs(s.net))}</div>
         <div class="reco-disc">On-chain consensus signal · informational only, not financial advice. No order is placed.</div>
       </div>
+      <div class="dst">Exit &amp; order map <span class="cnt">resting orders</span></div>
+      <div class="om" id="ordermap"><div class="om-empty">reading resting orders…</div></div>
       <div class="dst">Who's in this trade <span class="cnt">${rows.length}</span></div>`;
   rows.forEach(f=>{ const tr=getTrader(f.addr);
     b+=`<div class="fillrow" data-traderp="${esc(f.addr)}"><div>${avatarHTML(f.addr,28)}</div>
@@ -752,6 +793,10 @@ function openThreadSheet(id){
   document.getElementById('sheetInner').innerHTML=b+`</div>`;
   document.getElementById('sheet').classList.add('on'); document.getElementById('scrim').classList.add('on'); tgBack(true);
   document.querySelector('#sheetInner [data-act="close"]').onclick=closeSheet;
+  // async: fetch each trader's open orders → aggregate TP/SL/entry levels
+  Promise.all(th.traders.map(t=>fetchOpenOrders(t.addr))).then(list=>{
+    if(ST.threadSel!==id) return; const el=document.getElementById('ordermap'); if(el) el.innerHTML=orderMapHTML(th, buildOrderMap(th,list));
+  });
 }
 function openTraderSheet(addr){
   const tr=getTrader(addr); const now=nowTs(); ST.threadSel=null;
