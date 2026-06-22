@@ -6,6 +6,7 @@
 <title>CoinDCX · Trader Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <meta name="theme-color" content="#182954">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23182954'/%3E%3Ctext x='16' y='23' font-size='20' font-weight='800' text-anchor='middle' fill='%23fa4a29' font-family='Arial,sans-serif'%3EC%3C/text%3E%3C/svg%3E">
 <style>
@@ -16,6 +17,9 @@ html,body{ height:100%; margin:0; }
 body{ background:#e9edf2; display:flex; justify-content:center;
   font-family:"Inter",-apple-system,"SF Pro",system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
 .frame{ position:relative; width:100%; max-width:480px; height:100dvh; height:100vh; overflow:hidden; box-shadow:0 0 60px rgba(0,0,0,.25); }
+/* Telegram Mini App: fill the Telegram viewport, drop the desktop phone frame */
+body.in-tg{ background:var(--tg-out,#0b0d11); }
+.in-tg .frame{ max-width:none; height:var(--tg-vh,100dvh); box-shadow:none; }
 
 .tiscreen{ position:relative; width:100%; height:100%; overflow:hidden; }
 .tiscreen[data-theme="dark"]{
@@ -353,6 +357,27 @@ const ST = { theme:'light', tab:'live', disc:false, sortLb:'net', sortLean:'net'
   byAddr:{}, labels:{}, feed:[], orders:{}, feedSeen:new Set(), winRates:{}, liveMkt:{}, ws:null, feedStarted:false, wrRendered:false,
   paused:false, buffered:0, speed:1, frozenNow:0, threadSel:null, copyCtx:null };
 
+/* ── Telegram Mini App integration ── */
+const TG = window.Telegram && window.Telegram.WebApp;
+const inTG = !!(TG && TG.platform && TG.platform !== 'unknown');
+function tgBack(show){ if(TG&&TG.BackButton){ try{ show?TG.BackButton.show():TG.BackButton.hide(); }catch(_){} } }
+function tgTap(style){ try{ TG&&TG.HapticFeedback&&TG.HapticFeedback.impactOccurred(style||'light'); }catch(_){} }
+function tgBgColor(){ return ST.theme==='dark'?'#0b0d11':'#f5f6f8'; }
+function tgViewport(){ if(TG){ const h=TG.viewportStableHeight||TG.viewportHeight||window.innerHeight; document.documentElement.style.setProperty('--tg-vh', h+'px'); } }
+if(inTG){ try{
+  TG.ready(); TG.expand();
+  document.body.classList.add('in-tg');
+  ST.theme = TG.colorScheme==='dark' ? 'dark' : 'light';
+  document.documentElement.style.setProperty('--tg-out', tgBgColor());
+  try{ TG.setHeaderColor('#182954'); }catch(_){}
+  try{ TG.setBackgroundColor(tgBgColor()); }catch(_){}
+  try{ TG.disableVerticalSwipes && TG.disableVerticalSwipes(); }catch(_){}   // don't let pull-down close the app mid-scroll
+  tgViewport();
+  TG.onEvent('viewportChanged', tgViewport);
+  TG.onEvent('themeChanged', ()=>{ ST.theme=TG.colorScheme==='dark'?'dark':'light'; document.documentElement.style.setProperty('--tg-out',tgBgColor()); try{TG.setBackgroundColor(tgBgColor());}catch(_){} render(); });
+  TG.BackButton.onClick(()=>{ if(document.getElementById('sheet').classList.contains('on')) closeSheet(); });
+}catch(e){} }
+
 /* CoinDCX deep link for the Copy-trade CTA. The exact app scheme isn't public —
    override at runtime via window.CMM_DCX_LINK = sym => "coindcx://..." if you have it. */
 const DCX_BASE = 'https://coindcx.com/futures';
@@ -544,13 +569,13 @@ function openSheet(addr){
   const t=ST.model.traders.find(x=>x.addr===addr); if(!t) return;
   ST.selAddr=addr;
   renderSheet(t, t.positions, {live:false});                 // instant snapshot
-  document.getElementById('sheet').classList.add('on'); document.getElementById('scrim').classList.add('on');
+  document.getElementById('sheet').classList.add('on'); document.getElementById('scrim').classList.add('on'); tgBack(true);
   fetchLivePositions(t.addr, ST.model.meta.dex).then(live=>{  // then live from Hyperliquid
     if(ST.selAddr!==addr) return;
     renderSheet(t, live.positions, {live:true, unreal:live.unreal, roi:live.roi, acct:live.acct});
   }).catch(()=>{ /* CORS/network → keep snapshot */ });
 }
-function closeSheet(){ ST.selAddr=null; document.getElementById('sheet').classList.remove('on'); document.getElementById('scrim').classList.remove('on'); }
+function closeSheet(){ ST.selAddr=null; document.getElementById('sheet').classList.remove('on'); document.getElementById('scrim').classList.remove('on'); tgBack(false); }
 
 /* ── realtime live-trades feed (Hyperliquid WS userFills) ── */
 const HL_WS='wss://api.hyperliquid.xyz/ws';
@@ -725,7 +750,7 @@ function openThreadSheet(id){
       <div class="fr-id"><div class="fr-handle mono">${tr.short}</div><div class="fr-meta num">${tr.win!=null?tr.win+'% WR · ':''}${f.lev?f.lev+'× · ':''}${relTime(f.ts)}</div></div>
       <div class="fr-side">${sidePill(f.side)}<span class="fr-size num">${usdC(f.size)}</span></div></div>`; });
   document.getElementById('sheetInner').innerHTML=b+`</div>`;
-  document.getElementById('sheet').classList.add('on'); document.getElementById('scrim').classList.add('on');
+  document.getElementById('sheet').classList.add('on'); document.getElementById('scrim').classList.add('on'); tgBack(true);
   document.querySelector('#sheetInner [data-act="close"]').onclick=closeSheet;
 }
 function openTraderSheet(addr){
@@ -750,7 +775,7 @@ function openTraderSheet(addr){
     <div class="fr-id"><div class="fr-handle">$${esc(th.sym)}</div><div class="fr-meta num">entry $${fmtPx(f.entry)}${f.lev?' · '+f.lev+'×':''}</div></div>
     <div class="fr-side">${sidePill(f.side)}<span class="fr-size num">${usdC(f.size)}</span></div></div>`; });
   document.getElementById('sheetInner').innerHTML=b+`</div>`;
-  document.getElementById('sheet').classList.add('on'); document.getElementById('scrim').classList.add('on');
+  document.getElementById('sheet').classList.add('on'); document.getElementById('scrim').classList.add('on'); tgBack(true);
   document.querySelector('#sheetInner [data-act="close"]').onclick=closeSheet;
 }
 
