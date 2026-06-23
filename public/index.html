@@ -621,21 +621,23 @@ function closeSheet(){ ST.selAddr=null; document.getElementById('sheet').classLi
 const HL_WS='wss://api.hyperliquid.xyz/ws';
 function feedAddrs(){
   const t=ST.model?ST.model.traders:[]; const m=new Map();
-  [...t].sort((a,b)=>b.net-a.net).slice(0,30).forEach(x=>m.set(x.addr,1));         // top by PnL
-  [...t].filter(x=>x.acct>=1e6).sort((a,b)=>b.acct-a.acct).slice(0,20).forEach(x=>m.set(x.addr,1)); // whales
-  return [...m.keys()].slice(0,45);
+  [...t].sort((a,b)=>b.net-a.net).slice(0,12).forEach(x=>m.set(x.addr,1));          // top by PnL
+  [...t].filter(x=>x.acct>=1e6).sort((a,b)=>b.acct-a.acct).slice(0,8).forEach(x=>m.set(x.addr,1)); // whales
+  return [...m.keys()].slice(0,15);                                                 // cap subscriptions (per-client load)
 }
+function wsWanted(){ return ST.tab==='live' && !document.hidden; }                   // only stream when on-screen & on the live tab
 function startFeed(){
-  if(ST.feedStarted||!ST.model) return; const addrs=feedAddrs(); if(!addrs.length) return;
+  if(ST.feedStarted||!ST.model||!wsWanted()) return; const addrs=feedAddrs(); if(!addrs.length) return;
   ST.feedStarted=true; let ws; try{ ws=new WebSocket(HL_WS); }catch(e){ ST.feedStarted=false; return; }
   ST.ws=ws;
   ws.onopen=()=>{ addrs.forEach(a=>ws.send(JSON.stringify({method:'subscribe',subscription:{type:'userFills',user:a}})));
     setTimeout(()=>{ if(!ST.wrRendered){ ST.wrRendered=true; render(); } }, 3000); };  // surface win-rate badges once seeded
   ws.onmessage=(e)=>{ let m; try{m=JSON.parse(e.data);}catch(_){return;} if(m.channel!=='userFills'||!m.data) return;
     onFills((m.data.user||'').toLowerCase(), m.data.fills||[], !!m.data.isSnapshot); };
-  ws.onclose=()=>{ ST.feedStarted=false; ST.ws=null; setTimeout(startFeed,4000); };   // auto-reconnect
+  ws.onclose=()=>{ ST.feedStarted=false; ST.ws=null; if(wsWanted()) setTimeout(startFeed,4000); };   // reconnect only if still wanted
   ws.onerror=()=>{ try{ws.close();}catch(_){} };
 }
+function stopFeed(){ ST.feedStarted=false; if(ST.ws){ try{ ST.ws.onclose=null; ST.ws.close(); }catch(_){} ST.ws=null; } }
 let feedRenderT=null;
 function recomputeWinRates(){ const w={}; for(const o of ST.feed){ if(/Close/i.test(o.dir)){ const r=w[o.addr]||(w[o.addr]={win:0,n:0,rate:0}); r.n++; if(o.pnl>0)r.win++; r.rate=r.win/r.n; } } ST.winRates=w; }
 function onFills(addr, fills, isSnap){
@@ -867,7 +869,7 @@ function showToast(text){ const el=document.getElementById('toast'); el.innerHTM
 /* ── render + events ── */
 function render(){ document.getElementById('screen').setAttribute('data-theme',ST.theme);
   document.getElementById('scroll').innerHTML=headerHTML()+tabbarHTML()+(ST.tab==='live'?liveBody():body());
-  if(ST.tab==='live') startFeed(); }
+  if(ST.tab==='live') startFeed(); else stopFeed(); }
 document.getElementById('scroll').addEventListener('click',e=>{
   const a=e.target.closest('[data-act]'); if(a){ const k=a.dataset.act; if(k==='theme'){ST.theme=ST.theme==='dark'?'light':'dark';render();} else if(k==='disc'){ST.disc=!ST.disc;render();} return; }
   const tb=e.target.closest('[data-tab]'); if(tb){ ST.tab=tb.dataset.tab; render(); return; }
@@ -909,16 +911,22 @@ function load(initial){
     ST.byAddr={}; ST.model.traders.forEach(t=>ST.byAddr[t.addr]=t);   // for badges/feed lookup
     const sheetOpen=document.getElementById('sheet').classList.contains('on');
     if(initial || !sheetOpen) render();               // don't yank an open sheet out
-    tick(); startFeed(); refreshMarkets();            // warm the realtime feed + live marks
+    tick(); refreshMarkets();            // render() already starts the feed when on the live tab
   });
 }
 /* curated wallet labels (influencer / known funds) — derived badges (whale, win-rate, hot) are automatic */
 fetch('labels.json',{cache:'no-store'}).then(r=>r.ok?r.json():{}).then(j=>{ const m=(j&&j.labels)||{}; const o={};
   Object.keys(m).forEach(k=>o[k.toLowerCase()]=m[k]); ST.labels=o; if(ST.model) render(); }).catch(()=>{});
 load(true).catch(e=>{ document.getElementById('scroll').innerHTML='<div class="loading">Could not load intel_snapshot.json — run the ranker with --export.<br><br>'+esc(e.message)+'</div>'; });
-setInterval(tick, 5000);                               // freshness label
-setInterval(()=>load(false).catch(()=>{}), 30000);     // poll for a newer snapshot
-setInterval(refreshMarkets, 30000);                    // keep mark/funding fresh
+setInterval(tick, 5000);                               // freshness label (cheap, local)
+setInterval(()=>{ if(!document.hidden) load(false).catch(()=>{}); }, 60000);   // poll snapshot (paused when backgrounded)
+setInterval(()=>{ if(!document.hidden) refreshMarkets(); }, 60000);            // refresh marks (paused when backgrounded)
+
+/* pause everything when the Mini App is backgrounded; resume + refresh when it returns */
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){ stopFeed(); }
+  else { if(ST.tab==='live') startFeed(); load(false).catch(()=>{}); refreshMarkets(); }
+});
 </script>
 </body>
 </html>
